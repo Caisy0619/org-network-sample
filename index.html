@@ -206,6 +206,9 @@ function renderNetwork(){
   var nodes=new vis.DataSet(people.map(function(p){
     var bg=deptColors[p.dept]||'#999';
     var sz=p.group==='高管'||p.group==='管理层'?20:p.group==='中层'||p.group==='部门负责人'||p.group==='区域负责人'?16:13;
+    // 董事长（CEO/创始人）比总经理大一号
+    if(p.title.indexOf('董事长')>=0||p.id.indexOf('董事长')>=0||p.title.indexOf('CEO')>=0||p.title.indexOf('创始人')>=0) sz=26;
+    else if(p.title.indexOf('总经理')>=0||p.title.indexOf('总裁')>=0||p.title.indexOf('COO')>=0||p.title.indexOf('CFO')>=0) sz=22;
     var sh=p.group==='高管'||p.group==='管理层'?'star':p.group==='中层'||p.group==='部门负责人'||p.group==='区域负责人'?'diamond':'ellipse';
     return{
       id:p.id,label:p.id,widthConstraint:50,
