@@ -171,7 +171,20 @@ function renderNetwork(){
     };
   }));
 
-  // Invisible region anchor nodes — cluster people by region
+  // Calculate hierarchy level for each person
+  function calcLevel(name, memo) {
+    if(memo[name] !== undefined) return memo[name];
+    var p = people.find(function(x){return x.id===name});
+    if(!p || !p.reportsTo) { memo[name]=0; return 0; }
+    memo[name] = calcLevel(p.reportsTo, memo) + 1;
+    return memo[name];
+  }
+  var levelMap = {};
+  people.forEach(function(p){levelMap[p.id]=calcLevel(p.id,levelMap)});
+
+  var edges=new vis.DataSet();
+
+  // Invisible region anchor nodes — cluster people by region (edges added after edges var declared)
   var regionMap = {};
   people.forEach(function(p){
     if(!p.region) return;
@@ -190,18 +203,6 @@ function renderNetwork(){
     });
   });
 
-  // Calculate hierarchy level for each person
-  function calcLevel(name, memo) {
-    if(memo[name] !== undefined) return memo[name];
-    var p = people.find(function(x){return x.id===name});
-    if(!p || !p.reportsTo) { memo[name]=0; return 0; }
-    memo[name] = calcLevel(p.reportsTo, memo) + 1;
-    return memo[name];
-  }
-  var levelMap = {};
-  people.forEach(function(p){levelMap[p.id]=calcLevel(p.id,levelMap)});
-
-  var edges=new vis.DataSet();
   // Reporting edges (red solid)
   people.forEach(function(p){
     if(p.reportsTo&&people.some(function(x){return x.id===p.reportsTo}))
