@@ -24,7 +24,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 #uploadZone .text{font-size:16px;color:#888;margin-top:8px}
 #uploadZone .sub{font-size:13px;color:#aaa;margin-top:4px}
 #chartArea{display:none}
-#mynetwork{width:100%;height:calc(100vh - 120px);background:#fff}
+#mynetwork{width:100%;height:calc(100vh - 120px);background:#e8ecf1}
 #detailPanel{position:fixed;right:-340px;top:120px;width:320px;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:20px;transition:right .3s;z-index:100}
 #detailPanel.open{right:20px}
 #detailPanel h3{font-size:18px;margin-bottom:4px}
@@ -139,7 +139,7 @@ function renderGraph(people) {
     return {
       id: p.id, label: p.id, group: p.group,
       color: {background:gs.bg, border:"#333", highlight:{background:gs.bg, border:"#FFD700"}},
-      font: {color:"#fff", size: gs.size>20?14:12, face:"PingFang SC, Microsoft YaHei, sans-serif"},
+      font: {color:"#fff", size: gs.size>20?14:12, face:"PingFang SC, Microsoft YaHei, sans-serif", strokeWidth:3, strokeColor:"rgba(0,0,0,0.5)"},
       shape: gs.shape, size: gs.size, borderWidth:2, shadow:true,
     };
   }));
