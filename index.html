@@ -145,13 +145,14 @@ function renderGraph(people) {
 
   const nodes = new vis.DataSet(people.map(p => {
     const bg = deptMap[p.dept] || "#999";
-    const size = p.group === "高管"||p.group==="管理层" ? 28 : p.group==="中层"||p.group==="部门负责人"||p.group==="区域负责人" ? 24 : 18;
+    const size = p.group === "高管"||p.group==="管理层" ? 22 : p.group==="中层"||p.group==="部门负责人"||p.group==="区域负责人" ? 18 : 14;
     const shape = p.group === "高管"||p.group==="管理层" ? "star" : p.group==="中层"||p.group==="部门负责人"||p.group==="区域负责人" ? "diamond" : "ellipse";
     return {
       id: p.id, label: p.id,
+      widthConstraint: 60,
       color: {background:bg, border:"#333", highlight:{background:bg, border:"#FFD700"}},
-      font: {color:"#fff", size:12, face:"PingFang SC, Microsoft YaHei, sans-serif", strokeWidth:2, strokeColor:"rgba(0,0,0,0.4)"},
-      shape, size, borderWidth:2, shadow:{enabled:true, size:3},
+      font: {color:"#fff", size:10, face:"PingFang SC, Microsoft YaHei, sans-serif", strokeWidth:2, strokeColor:"rgba(0,0,0,0.4)"},
+      shape, size, borderWidth:1, shadow:{enabled:true, size:2},
       title: `<b>${p.id}</b><br>${p.dept} · ${p.title}<br>汇报: ${p.reportsTo||'无'}<br>协作: ${p.collab||'无'}`
     };
   }));
@@ -188,7 +189,7 @@ function renderGraph(people) {
   const container = document.getElementById('mynetwork');
   if(network) network.destroy();
   network = new vis.Network(container, {nodes,edges}, {
-    layout:{hierarchical:{enabled:true, direction:"UD", sortMethod:"directed", levelSeparation:60, nodeSpacing:100, treeSpacing:120}},
+    layout:{hierarchical:{enabled:true, direction:"UD", sortMethod:"directed", levelSeparation:35, nodeSpacing:30, treeSpacing:40}},
     physics:{enabled:false},
     interaction:{hover:true, tooltipDelay:100, zoomView:true, dragView:true},
     edges:{smooth:{type:"curvedCW", roundness:0.1}},
