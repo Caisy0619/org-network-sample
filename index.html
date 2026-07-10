@@ -278,13 +278,13 @@ function renderNetwork(){
       // Try same-level first; if none, fall back to cross-level
       var sameLevelMatches=[];
       var crossLevelMatches=[];
-      var isAssist = p.dept.indexOf('总助')>=0||p.dept.indexOf('助理')>=0;
+      var isAssist = p.title.indexOf('总助')>=0||p.title.indexOf('助理')>=0||p.id.indexOf('总助')>=0||p.id.indexOf('助理')>=0||p.dept.indexOf('总助')>=0||p.dept.indexOf('助理')>=0;
       people.forEach(function(x){
         if(x.id===p.id||!x.region) return;
         if(!matchRegion(x.region,p.region)) return;
         if(!(x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0)) return;
-        // 总助只连非总助的人
-        if(isAssist && (x.dept.indexOf('总助')>=0||x.dept.indexOf('助理')>=0)) return;
+        // 总助不连总助
+        if(isAssist && (x.title.indexOf('总助')>=0||x.title.indexOf('助理')>=0||x.id.indexOf('总助')>=0||x.id.indexOf('助理')>=0||x.dept.indexOf('总助')>=0||x.dept.indexOf('助理')>=0)) return;
         if(levelMap[x.id]===levelMap[p.id]) sameLevelMatches.push(x);
         else crossLevelMatches.push(x);
       });
