@@ -226,12 +226,17 @@ function renderNetwork(){
     if(p.reportsTo&&people.some(function(x){return x.id===p.reportsTo}))
       edges.add({from:p.reportsTo,to:p.id,color:{color:'#C0392B'},width:2,dashes:false,title:'汇报'});
   });
-  // Collaboration edges (green dashed) — only between SAME level
+  // Collaboration edges (green dashed) — same region + same level only; 全国 matches everyone
   people.forEach(function(p){
     if(!p.collab) return;
     p.collab.split(/[/,，、]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(tag){
       people.filter(function(x){
-        return (x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0) && x.id!==p.id && levelMap[x.id]===levelMap[p.id];
+        if(x.id===p.id) return false;
+        if(levelMap[x.id]!==levelMap[p.id]) return false;
+        // Same region OR either is 全国
+        var sameRegion = (x.region===p.region) || x.region==='全国' || p.region==='全国';
+        if(!sameRegion) return false;
+        return (x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0);
       }).forEach(function(t){
         var k=[p.id,t.id].sort().join('|');
         if(!edges.get().some(function(e){return[e.from,e.to].sort().join('|')===k&&e.title==='协作'}))
