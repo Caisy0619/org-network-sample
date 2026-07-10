@@ -175,10 +175,11 @@ function getVisiblePeople(){
   var deptChecked={};
   document.querySelectorAll('.dept-cb:checked').forEach(function(cb){deptChecked[cb.value]=true});
   var regionChecked={};
-  document.querySelectorAll('.region-cb:checked').forEach(function(cb){regionChecked[cb.value]=true});
+  var hasCheckedRegion=false;
+  document.querySelectorAll('.region-cb:checked').forEach(function(cb){regionChecked[cb.value]=true;hasCheckedRegion=true});
   return allPeople.filter(function(p){
     if(!deptChecked[p.dept]) return false;
-    if(!p.region) return true;
+    if(!p.region) return hasCheckedRegion; // 无区域的人：有区域筛选时才显示
     var personRegions=p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean);
     return personRegions.some(function(r){return regionChecked[r]});
   });
