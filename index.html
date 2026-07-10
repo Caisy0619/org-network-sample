@@ -134,28 +134,62 @@ function buildGraph(wb){
 
   // Build dept filter checkboxes
   var depts=Object.keys(deptColors).sort();
-  var filterHtml='<label style="font-weight:600">部门:</label>';
+  var filterHtml='<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px"><span style="font-weight:600">部门:</span>';
   depts.forEach(function(d){
     var c=deptColors[d];
     filterHtml+='<label><input type="checkbox" class="dept-cb" value="'+d+'" checked> <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+c+'"></span> '+d+'</label>';
   });
-  filterHtml+=' <a href="javascript:void 0" onclick="toggleAllDepts(true)" style="font-size:11px;color:#2F5496">全选</a> <a href="javascript:void 0" onclick="toggleAllDepts(false)" style="font-size:11px;color:#999">清空</a>';
+  filterHtml+=' <a href="javascript:void 0" onclick="toggleAllDepts(true)" style="font-size:11px;color:#2F5496">全选</a> <a href="javascript:void 0" onclick="toggleAllDepts(false)" style="font-size:11px;color:#999">清空</a></div>';
   document.getElementById('deptFilters').innerHTML=filterHtml;
+
+  // Build region filter checkboxes
+  var allRegions={};
+  allPeople.forEach(function(p){
+    if(!p.region) return;
+    p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(r){allRegions[r]=true});
+  });
+  var regionKeys=Object.keys(allRegions).sort();
+  var regionHtml='<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;margin-top:4px"><span style="font-weight:600">区域:</span>';
+  regionKeys.forEach(function(r){
+    regionHtml+='<label><input type="checkbox" class="region-cb" value="'+r+'" checked style="margin:0"> '+r+'</label>';
+  });
+  regionHtml+=' <a href="javascript:void 0" onclick="toggleAllRegions(true)" style="font-size:11px;color:#2F5496">全选</a> <a href="javascript:void 0" onclick="toggleAllRegions(false)" style="font-size:11px;color:#999">清空</a></div>';
+  document.getElementById('deptFilters').innerHTML+=regionHtml;
 
   // Listen to filter changes
   document.querySelectorAll('.dept-cb').forEach(function(cb){cb.addEventListener('change',renderNetwork)});
+  document.querySelectorAll('.region-cb').forEach(function(cb){cb.addEventListener('change',renderNetwork)});
 
   renderNetwork();
 }
 
+// Match regions that may be separated by 、
+function matchRegion(r1, r2){
+  if(!r1||!r2) return false;
+  var a1=r1.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean);
+  var a2=r2.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean);
+  return a1.some(function(x){return a2.indexOf(x)>=0});
+}
+
 function getVisiblePeople(){
-  var checked={};
-  document.querySelectorAll('.dept-cb:checked').forEach(function(cb){checked[cb.value]=true});
-  return allPeople.filter(function(p){return checked[p.dept]});
+  var deptChecked={};
+  document.querySelectorAll('.dept-cb:checked').forEach(function(cb){deptChecked[cb.value]=true});
+  var regionChecked={};
+  document.querySelectorAll('.region-cb:checked').forEach(function(cb){regionChecked[cb.value]=true});
+  return allPeople.filter(function(p){
+    if(!deptChecked[p.dept]) return false;
+    if(!p.region) return true;
+    var personRegions=p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean);
+    return personRegions.some(function(r){return regionChecked[r]});
+  });
 }
 
 function toggleAllDepts(show){
   document.querySelectorAll('.dept-cb').forEach(function(cb){cb.checked=show});
+  renderNetwork();
+}
+function toggleAllRegions(show){
+  document.querySelectorAll('.region-cb').forEach(function(cb){cb.checked=show});
   renderNetwork();
 }
 
@@ -194,12 +228,14 @@ function renderNetwork(){
 
   var edges=new vis.DataSet();
 
-  // Invisible region anchor nodes — cluster people by region
+  // Invisible region anchor nodes — cluster people by region (supports 、-separated)
   var regionMap = {};
   people.forEach(function(p){
     if(!p.region) return;
-    if(!regionMap[p.region]) regionMap[p.region] = {id:'__r_'+p.region, label:'', people:[]};
-    regionMap[p.region].people.push(p.id);
+    p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(r){
+      if(!regionMap[r]) regionMap[r] = {id:'__r_'+r, label:'', people:[]};
+      regionMap[r].people.push(p.id);
+    });
   });
 
   // Add a 总部 anchor for non-regional / 全国 people
@@ -237,7 +273,7 @@ function renderNetwork(){
     p.collab.split(/[/,，、]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(tag){
       people.filter(function(x){
         if(x.id===p.id||!x.region) return false;
-        if(x.region!==p.region) return false;
+        if(!matchRegion(x.region,p.region)) return false;
         if(levelMap[x.id]!==levelMap[p.id]) return false;
         return x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0;
       }).forEach(function(t){
