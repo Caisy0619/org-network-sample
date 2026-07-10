@@ -72,7 +72,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 <script>
 let network = null, allPeople = [], deptColors = {};
 
-const COLORS = ["#C0392B","#2F5496","#548235","#BF8F00","#843C0C","#365F91","#4BACC6","#8064A2","#F79646","#1F4973","#953734","#76923C","#948A54","#4F6228","#9B59B6"];
+const COLORS = ["#C0392B","#2F5496","#27AE60","#E67E22","#8E44AD","#1ABC9C","#A0522D","#E91E63","#1A237E","#7CB342","#800000","#00BCD4","#6B8E23","#9B59B6","#F1C40F"];
 
 document.getElementById('uploadZone').addEventListener('dragover',e=>{e.preventDefault();document.getElementById('uploadZone').classList.add('dragover')});
 document.getElementById('uploadZone').addEventListener('dragleave',()=>document.getElementById('uploadZone').classList.remove('dragover'));
@@ -275,10 +275,13 @@ function renderNetwork(){
       // Try same-level first; if none, fall back to cross-level
       var sameLevelMatches=[];
       var crossLevelMatches=[];
+      var isAssist = p.dept.indexOf('总助')>=0||p.dept.indexOf('助理')>=0;
       people.forEach(function(x){
         if(x.id===p.id||!x.region) return;
         if(!matchRegion(x.region,p.region)) return;
         if(!(x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0)) return;
+        // 总助只连非总助的人
+        if(isAssist && (x.dept.indexOf('总助')>=0||x.dept.indexOf('助理')>=0)) return;
         if(levelMap[x.id]===levelMap[p.id]) sameLevelMatches.push(x);
         else crossLevelMatches.push(x);
       });
