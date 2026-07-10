@@ -3,43 +3,65 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>组织关系互动图 · 演示</title>
+<title>组织关系互动图</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/standalone/umd/vis-network.min.js"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/dist/vis-network.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6fa; }
-.header { background: #2F5496; color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
-.header h1 { font-size: 20px; font-weight: 600; }
-.header span { font-size: 13px; opacity: .8; }
-.toolbar { background: #fff; padding: 10px 24px; border-bottom: 1px solid #e0e0e0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.toolbar input { padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 200px; outline: none; }
-.toolbar input:focus { border-color: #2F5496; }
-.toolbar label { font-size: 13px; color: #555; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-#mynetwork { width: 100%; height: calc(100vh - 120px); background: #fff; }
-#detailPanel { position: fixed; right: -340px; top: 120px; width: 320px; background: #fff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,.15); padding: 20px; transition: right .3s; z-index: 100; }
-#detailPanel.open { right: 20px; }
-#detailPanel h3 { font-size: 18px; margin-bottom: 4px; }
-#detailPanel .sub { color: #888; font-size: 13px; margin-bottom: 12px; }
-#detailPanel .row { display: flex; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-#detailPanel .row .lbl { width: 80px; color: #888; }
-#detailPanel .row .val { flex: 1; }
-#detailPanel .close { position: absolute; top: 12px; right: 16px; cursor: pointer; color: #999; font-size: 20px; }
-#detailPanel .close:hover { color: #333; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f6fa;color:#333}
+.header{background:#2F5496;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:20px;font-weight:600}
+.header span{font-size:13px;opacity:.8}
+.toolbar{background:#fff;padding:10px 24px;border-bottom:1px solid #e0e0e0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;min-height:52px}
+.toolbar input[type=text]{padding:6px 12px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:200px;outline:0}
+.toolbar input[type=text]:focus{border-color:#2F5496}
+.toolbar label{font-size:13px;color:#555;display:flex;align-items:center;gap:6px;cursor:pointer}
+#uploadZone{border:2px dashed #2F5496;border-radius:8px;padding:40px 20px;text-align:center;margin:40px 20px;background:#fff;cursor:pointer;transition:.2s}
+#uploadZone:hover{border-color:#C0392B;background:#f0f2f9}
+#uploadZone.dragover{border-color:#C0392B;background:#fce9e9}
+#uploadZone .icon{font-size:48px;color:#2F5496}
+#uploadZone .text{font-size:16px;color:#888;margin-top:8px}
+#uploadZone .sub{font-size:13px;color:#aaa;margin-top:4px}
+#chartArea{display:none}
+#mynetwork{width:100%;height:calc(100vh - 120px);background:#fff}
+#detailPanel{position:fixed;right:-340px;top:120px;width:320px;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:20px;transition:right .3s;z-index:100}
+#detailPanel.open{right:20px}
+#detailPanel h3{font-size:18px;margin-bottom:4px}
+#detailPanel .sub{color:#888;font-size:13px;margin-bottom:12px}
+#detailPanel .row{display:flex;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
+#detailPanel .row .lbl{width:80px;color:#888}
+#detailPanel .row .val{flex:1}
+#detailPanel .close{position:absolute;top:12px;right:16px;cursor:pointer;color:#999;font-size:20px}
+#detailPanel .close:hover{color:#333}
+#status{font-size:13px;color:#888;margin-left:auto}
 </style>
 </head>
 <body>
 <div class="header">
   <h1>🏢 组织关系互动图</h1>
-  <span>点击节点查看详情 | 拖拽调整布局 | 滚轮缩放</span>
+  <span>上传Excel → 自动生成</span>
 </div>
-<div class="toolbar">
-  <input id="search" placeholder="搜索姓名...">
-  <label><input type="checkbox" id="togHierarchy" checked> 汇报线</label>
-  <label><input type="checkbox" id="togCollab" checked> 协作线</label>
-  <label style="margin-left:auto;color:#888;font-size:12px;"><span id="nodeCount">0</span> 人 · <span id="edgeCount">0</span> 条关系</label>
+
+<!-- Upload -->
+<div id="uploadZone" onclick="document.getElementById('fileInput').click()">
+  <div class="icon">📂</div>
+  <div class="text">点击选择 或 拖拽Excel文件到这里</div>
+  <div class="sub">支持 .xlsx · 第一行为表头</div>
+  <input id="fileInput" type="file" accept=".xlsx,.xls" style="display:none">
 </div>
-<div id="mynetwork"></div>
+
+<!-- Chart -->
+<div id="chartArea">
+  <div class="toolbar">
+    <input id="search" type="text" placeholder="搜索姓名...">
+    <label><input type="checkbox" id="togHierarchy" checked> 汇报线</label>
+    <label><input type="checkbox" id="togCollab" checked> 协作线</label>
+    <span id="status"></span>
+  </div>
+  <div id="mynetwork"></div>
+</div>
+
 <div id="detailPanel">
   <span class="close" onclick="closeDetail()">✕</span>
   <h3 id="dName"></h3>
@@ -50,120 +72,136 @@ body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft
 </div>
 
 <script>
-// ====== 虚拟公司：星辰科技 ======
-const people = [
-  {id:"张明远", dept:"总经办", title:"CEO", reportsTo:null, collab:"产品/销售/研发", group:"高管"},
-  {id:"陈思雨", dept:"总经办", title:"COO", reportsTo:"张明远", collab:"销售/人力/财务", group:"高管"},
-  {id:"刘昊天", dept:"总经办", title:"CFO", reportsTo:"张明远", collab:"人力/运营", group:"高管"},
-  {id:"李知行", dept:"产品中心", title:"产品副总裁", reportsTo:"张明远", collab:"研发/销售/设计", group:"高管"},
-  {id:"王露", dept:"产品中心", title:"产品经理", reportsTo:"李知行", collab:"设计/研发", group:"中层"},
-  {id:"周逸帆", dept:"产品中心", title:"产品经理", reportsTo:"李知行", collab:"销售/市场", group:"中层"},
-  {id:"赵桐", dept:"设计部", title:"设计总监", reportsTo:"李知行", collab:"产品/研发", group:"中层"},
-  {id:"林小鹿", dept:"设计部", title:"UI设计师", reportsTo:"赵桐", collab:"产品", group:"员工"},
-  {id:"孙浩", dept:"研发中心", title:"技术副总裁", reportsTo:"张明远", collab:"产品/运维", group:"高管"},
-  {id:"吴迪", dept:"研发中心", title:"后端组长", reportsTo:"孙浩", collab:"前端/产品", group:"中层"},
-  {id:"郑一凡", dept:"研发中心", title:"前端组长", reportsTo:"孙浩", collab:"后端/设计", group:"中层"},
-  {id:"何薇", dept:"研发中心", title:"后端工程师", reportsTo:"吴迪", collab:"" , group:"员工"},
-  {id:"徐磊", dept:"研发中心", title:"后端工程师", reportsTo:"吴迪", collab:"" , group:"员工"},
-  {id:"唐小雅", dept:"研发中心", title:"前端工程师", reportsTo:"郑一凡", collab:"设计", group:"员工"},
-  {id:"高铭", dept:"运维部", title:"运维总监", reportsTo:"孙浩", collab:"研发", group:"中层"},
-  {id:"苏航", dept:"运维部", title:"运维工程师", reportsTo:"高铭", collab:"" , group:"员工"},
-  {id:"许晴", dept:"销售中心", title:"销售副总裁", reportsTo:"陈思雨", collab:"产品/市场", group:"高管"},
-  {id:"顾磊", dept:"销售中心", title:"大客户经理", reportsTo:"许晴", collab:"产品", group:"中层"},
-  {id:"方琳", dept:"销售中心", title:"销售经理", reportsTo:"许晴", collab:"市场", group:"员工"},
-  {id:"沈悦", dept:"市场部", title:"市场总监", reportsTo:"陈思雨", collab:"销售/产品", group:"中层"},
-  {id:"江一舟", dept:"市场部", title:"市场专员", reportsTo:"沈悦", collab:"设计", group:"员工"},
-  {id:"严莉莉", dept:"人力资源部", title:"HRD", reportsTo:"陈思雨", collab:"财务/总经办", group:"中层"},
-  {id:"欧阳雪", dept:"人力资源部", title:"HRBP", reportsTo:"严莉莉", collab:"各业务线", group:"员工"},
-  {id:"马超", dept:"财务部", title:"财务经理", reportsTo:"刘昊天", collab:"人力", group:"中层"},
-];
+let network = null;
 
-// Group styling
-const groupStyles = {
-  "高管": { bg: "#C0392B", shape: "star", size: 28 },
-  "中层": { bg: "#2F5496", shape: "diamond", size: 24 },
-  "员工": { bg: "#7F8C8D", shape: "ellipse", size: 18 },
-};
+// Drag & drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files.length) handleFile(e.target.files[0]); });
 
-const nodes = new vis.DataSet(people.map(p => {
-  const gs = groupStyles[p.group] || { bg: "#999", shape: "ellipse", size: 18 };
-  return {
-    id: p.id,
-    label: p.id,
-    group: p.group,
-    color: { background: gs.bg, border: "#333", highlight: { background: gs.bg, border: "#FFD700" } },
-    font: { color: "#fff", size: gs.size > 20 ? 14 : 12, face: "PingFang SC, Microsoft YaHei, sans-serif" },
-    shape: gs.shape,
-    size: gs.size,
-    borderWidth: 2,
-    shadow: true,
+function handleFile(file) {
+  if(!file.name.match(/\.xlsx?$/i)) return alert('请上传 .xlsx 文件');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      buildGraph(wb);
+    } catch(err) { alert('读取Excel失败：'+err.message); }
   };
-}));
+  reader.readAsArrayBuffer(file);
+}
 
-const edges = new vis.DataSet();
-people.forEach(p => {
-  if (p.reportsTo) {
-    edges.add({ from: p.reportsTo, to: p.id, color: { color: "#C0392B" }, width: 2, dashes: false, title: "汇报" });
+function buildGraph(wb) {
+  // Find the first sheet with data
+  let sheet = null;
+  for(const name of wb.SheetNames) {
+    const s = wb.Sheets[name];
+    const json = XLSX.utils.sheet_to_json(s, {defval:''});
+    if(json.length > 0) { sheet = {name, data: json}; break; }
   }
-  if (p.collab) {
-    p.collab.split("/").map(s => s.trim()).filter(Boolean).forEach(tag => {
-      const targets = people.filter(x => x.dept.includes(tag) && x.id !== p.id);
-      targets.forEach(t => {
-        const key = [p.id, t.id].sort().join("|");
-        if (!edges.get().some(e => [e.from, e.to].sort().join("|") === key && e.title === "协作")) {
-          edges.add({ from: p.id, to: t.id, color: { color: "#70AD47" }, width: 1, dashes: true, title: "协作" });
-        }
+  if(!sheet) return alert('Excel中没有数据');
+
+  const data = sheet.data;
+  // Expected columns: 姓名, 部门, 岗位, 汇报对象, 协作部门, 分组标签
+  // Try to map - first row is header, but XLSX already parsed it
+  const people = data.map(row => ({
+    id: String(row['姓名'] || row['name'] || row['Name'] || ''),
+    dept: String(row['部门'] || row['dept'] || row['Dept'] || ''),
+    title: String(row['岗位'] || row['title'] || row['Title'] || row['职位'] || ''),
+    reportsTo: String(row['汇报对象'] || row['reportsTo'] || row['ReportsTo'] || ''),
+    collab: String(row['协作部门'] || row['collab'] || row['Collab'] || ''),
+    group: String(row['分组标签'] || row['group'] || row['Group'] || '员工'),
+  })).filter(p => p.id);
+
+  if(people.length === 0) return alert('未找到人员数据，请确认第一行是表头：姓名,部门,岗位,汇报对象,协作部门,分组标签');
+
+  document.getElementById('uploadZone').style.display = 'none';
+  document.getElementById('chartArea').style.display = 'block';
+
+  renderGraph(people);
+  document.getElementById('status').textContent = `${people.length} 人`;
+}
+
+function renderGraph(people) {
+  const groupStyles = {
+    "高管": {bg:"#C0392B",shape:"star",size:28},
+    "中层": {bg:"#2F5496",shape:"diamond",size:24},
+    "员工": {bg:"#7F8C8D",shape:"ellipse",size:18},
+    "管理层": {bg:"#C0392B",shape:"star",size:28},
+    "部门负责人": {bg:"#2F5496",shape:"diamond",size:24},
+    "区域负责人": {bg:"#BF8F00",shape:"square",size:24},
+  };
+
+  const nodes = new vis.DataSet(people.map(p => {
+    const gs = groupStyles[p.group] || {bg:"#999",shape:"ellipse",size:18};
+    return {
+      id: p.id, label: p.id, group: p.group,
+      color: {background:gs.bg, border:"#333", highlight:{background:gs.bg, border:"#FFD700"}},
+      font: {color:"#fff", size: gs.size>20?14:12, face:"PingFang SC, Microsoft YaHei, sans-serif"},
+      shape: gs.shape, size: gs.size, borderWidth:2, shadow:true,
+    };
+  }));
+
+  const edges = new vis.DataSet();
+  people.forEach(p => {
+    if(p.reportsTo) edges.add({from:p.reportsTo, to:p.id, color:{color:"#C0392B"}, width:2, dashes:false, title:"汇报"});
+    if(p.collab) {
+      p.collab.split(/[/,，、]/).map(s=>s.trim()).filter(Boolean).forEach(tag => {
+        people.filter(x => (x.dept.includes(tag) || x.group.includes(tag)) && x.id !== p.id).forEach(t => {
+          const k = [p.id,t.id].sort().join('|');
+          if(!edges.get().some(e => [e.from,e.to].sort().join('|')===k && e.title==='协作'))
+            edges.add({from:p.id, to:t.id, color:{color:"#70AD47"}, width:1, dashes:true, title:"协作"});
+        });
       });
-    });
-  }
-});
-
-document.getElementById("nodeCount").textContent = nodes.length;
-document.getElementById("edgeCount").textContent = edges.length;
-
-const container = document.getElementById("mynetwork");
-const network = new vis.Network(container, { nodes, edges }, {
-  layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "directed", levelSeparation: 120, nodeSpacing: 160, treeSpacing: 180 } },
-  physics: { enabled: true, solver: "barnesHut", barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 180, springConstant: 0.04 } },
-  interaction: { hover: true, tooltipDelay: 200, zoomView: true, dragView: true },
-  edges: { smooth: { type: "curvedCW", roundness: 0.2 } },
-});
-
-// Search
-document.getElementById("search").addEventListener("input", e => {
-  const q = e.target.value.trim();
-  if (!q) { network.selectNodes([]); network.unselectAll(); return; }
-  const match = nodes.get().filter(n => n.label.includes(q));
-  if (match.length) { network.selectNodes([match[0].id]); network.focus(match[0].id, { scale: 1.5, animation: { duration: 300 } }); }
-});
-
-// Toggle edges
-document.getElementById("togHierarchy").addEventListener("change", e => {
-  edges.forEach(ed => { if (ed.title === "汇报") edges.update({ id: ed.id, hidden: !e.target.checked }); });
-});
-document.getElementById("togCollab").addEventListener("change", e => {
-  edges.forEach(ed => { if (ed.title === "协作") edges.update({ id: ed.id, hidden: !e.target.checked }); });
-});
-
-// Click detail
-function closeDetail() { document.getElementById("detailPanel").classList.remove("open"); }
-
-network.on("click", params => {
-  if (params.nodes.length) {
-    const p = people.find(x => x.id === params.nodes[0]);
-    if (p) {
-      document.getElementById("dName").textContent = p.id;
-      document.getElementById("dDept").textContent = p.dept;
-      document.getElementById("dTitle").textContent = p.title;
-      document.getElementById("dReportsTo").textContent = p.reportsTo || "无";
-      document.getElementById("dCollab").textContent = p.collab || "无";
-      document.getElementById("dGroup").textContent = p.group;
-      document.getElementById("detailPanel").classList.add("open");
     }
-  } else {
-    closeDetail();
-  }
-});
+  });
+
+  document.getElementById('status').textContent = `${people.length} 人 · ${edges.length} 条关系`;
+
+  const container = document.getElementById('mynetwork');
+  if(network) network.destroy();
+  network = new vis.Network(container, {nodes,edges}, {
+    layout:{hierarchical:{enabled:true, direction:"UD", sortMethod:"directed", levelSeparation:120, nodeSpacing:160, treeSpacing:180}},
+    physics:{enabled:true, solver:"barnesHut", barnesHut:{gravitationalConstant:-2000, centralGravity:0.3, springLength:180, springConstant:0.04}},
+    interaction:{hover:true, tooltipDelay:200, zoomView:true, dragView:true},
+    edges:{smooth:{type:"curvedCW", roundness:0.2}},
+  });
+
+  // Search
+  document.getElementById('search').oninput = e => {
+    const q = e.target.value.trim();
+    if(!q) { network.selectNodes([]); network.unselectAll(); return; }
+    const m = nodes.get().filter(n => n.label.includes(q));
+    if(m.length) { network.selectNodes([m[0].id]); network.focus(m[0].id, {scale:1.5, animation:{duration:300}}); }
+  };
+
+  // Toggle
+  document.getElementById('togHierarchy').onchange = e => {
+    edges.forEach(ed => { if(ed.title==='汇报') edges.update({id:ed.id, hidden:!e.target.checked}); });
+  };
+  document.getElementById('togCollab').onchange = e => {
+    edges.forEach(ed => { if(ed.title==='协作') edges.update({id:ed.id, hidden:!e.target.checked}); });
+  };
+
+  network.on('click', params => {
+    if(params.nodes.length) {
+      const p = people.find(x => x.id === params.nodes[0]);
+      if(p) {
+        document.getElementById('dName').textContent = p.id;
+        document.getElementById('dDept').textContent = p.dept;
+        document.getElementById('dTitle').textContent = p.title;
+        document.getElementById('dReportsTo').textContent = p.reportsTo || '无';
+        document.getElementById('dCollab').textContent = p.collab || '无';
+        document.getElementById('dGroup').textContent = p.group;
+        document.getElementById('detailPanel').classList.add('open');
+      }
+    } else { closeDetail(); }
+  });
+}
+
+function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); }
 </script>
 </body>
 </html>
