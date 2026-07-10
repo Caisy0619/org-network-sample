@@ -158,19 +158,35 @@ function renderNetwork(){
     };
   }));
 
+  // Calculate hierarchy level for each person
+  function calcLevel(name, memo) {
+    if(memo[name] !== undefined) return memo[name];
+    var p = people.find(function(x){return x.id===name});
+    if(!p || !p.reportsTo) { memo[name]=0; return 0; }
+    memo[name] = calcLevel(p.reportsTo, memo) + 1;
+    return memo[name];
+  }
+  var levelMap = {};
+  people.forEach(function(p){levelMap[p.id]=calcLevel(p.id,levelMap)});
+
   var edges=new vis.DataSet();
+  // Reporting edges (red solid)
   people.forEach(function(p){
     if(p.reportsTo&&people.some(function(x){return x.id===p.reportsTo}))
       edges.add({from:p.reportsTo,to:p.id,color:{color:'#C0392B'},width:2,dashes:false,title:'汇报'});
-    if(p.collab){
-      p.collab.split(/[/,，、]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(tag){
-        people.filter(function(x){return(x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0)&&x.id!==p.id}).forEach(function(t){
-          var k=[p.id,t.id].sort().join('|');
-          if(!edges.get().some(function(e){return[e.from,e.to].sort().join('|')===k&&e.title==='协作'}))
-            edges.add({from:p.id,to:t.id,color:{color:'#70AD47'},width:1,dashes:true,title:'协作'});
-        });
+  });
+  // Collaboration edges (green dashed) — only between SAME level
+  people.forEach(function(p){
+    if(!p.collab) return;
+    p.collab.split(/[/,，、]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(tag){
+      people.filter(function(x){
+        return (x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0) && x.id!==p.id && levelMap[x.id]===levelMap[p.id];
+      }).forEach(function(t){
+        var k=[p.id,t.id].sort().join('|');
+        if(!edges.get().some(function(e){return[e.from,e.to].sort().join('|')===k&&e.title==='协作'}))
+          edges.add({from:p.id,to:t.id,color:{color:'#70AD47'},width:1,dashes:true,title:'协作'});
       });
-    }
+    });
   });
 
   document.getElementById('status').textContent=people.length+' 人 · '+edges.length+' 条关系';
