@@ -184,23 +184,36 @@ function renderNetwork(){
 
   var edges=new vis.DataSet();
 
-  // Invisible region anchor nodes — cluster people by region (edges added after edges var declared)
+  // Invisible region anchor nodes — cluster people by region
   var regionMap = {};
   people.forEach(function(p){
     if(!p.region) return;
     if(!regionMap[p.region]) regionMap[p.region] = {id:'__r_'+p.region, label:'', people:[]};
     regionMap[p.region].people.push(p.id);
   });
+
+  // Add a 总部 anchor for non-regional / 全国 people
+  var hasHQ = false;
   Object.keys(regionMap).forEach(function(r){
     var rn = regionMap[r];
-    nodes.add({id:rn.id,label:'['+r+']',shape:'box',size:1,
-      color:{background:'transparent',border:'#aaa'},
-      font:{color:'#888',size:8,face:'PingFang SC, Microsoft YaHei, sans-serif'},
-      physics:true,fixed:false,widthConstraint:30
+    nodes.add({id:rn.id,label:'',shape:'ellipse',size:1,
+      color:{background:'transparent',border:'transparent'},
+      font:{size:1},fixed:false
     });
     rn.people.forEach(function(pid){
-      edges.add({from:rn.id,to:pid,color:{color:'rgba(0,0,0,0.08)'},width:0.5,dashes:true,physics:true,title:''});
+      edges.add({from:rn.id,to:pid,color:{color:'rgba(0,0,0,0.03)'},width:0.3,physics:true,title:''});
     });
+    // 全国 people also connect to a central 总部 anchor
+    if(r==='全国'||r==='总部') {
+      hasHQ = true;
+      var hqId = '__r_总部';
+      if(!nodes.get(hqId)) {
+        nodes.add({id:hqId,label:'',shape:'ellipse',size:1,color:{background:'transparent',border:'transparent'},font:{size:1},fixed:false});
+      }
+      rn.people.forEach(function(pid){
+        edges.add({from:hqId,to:pid,color:{color:'rgba(0,0,0,0.04)'},width:0.4,physics:true,title:''});
+      });
+    }
   });
 
   // Reporting edges (red solid)
@@ -229,7 +242,7 @@ function renderNetwork(){
 
   // Force-directed layout: clusters by connectedness, so dept nodes stay near each other
   network=new vis.Network(container,{nodes,edges},{
-    physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-80,centralGravity:0.01,springLength:100,springConstant:0.08,damping:0.4}},
+    physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-150,centralGravity:0.02,springLength:60,springConstant:0.12,damping:0.4}},
     layout:{},
     interaction:{hover:true,tooltipDelay:80,zoomView:true,dragView:true},
     edges:{smooth:{type:'curvedCW',roundness:0.1}},
