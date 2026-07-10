@@ -146,7 +146,7 @@ function buildGraph(wb){
   var allRegions={};
   allPeople.forEach(function(p){
     if(!p.region) return;
-    p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(r){allRegions[r]=true});
+    p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).filter(function(s){return s!=='总助'&&s!=='助理'}).forEach(function(r){allRegions[r]=true});
   });
   var regionKeys=Object.keys(allRegions).sort();
   var regionHtml='<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;margin-top:4px"><span style="font-weight:600">区域:</span>';
@@ -166,8 +166,8 @@ function buildGraph(wb){
 // Match regions that may be separated by 、
 function matchRegion(r1, r2){
   if(!r1||!r2) return false;
-  var a1=r1.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean);
-  var a2=r2.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean);
+  var a1=r1.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).filter(function(s){return s!=='总助'&&s!=='助理'});
+  var a2=r2.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).filter(function(s){return s!=='总助'&&s!=='助理'});
   return a1.some(function(x){return a2.indexOf(x)>=0});
 }
 
@@ -236,7 +236,7 @@ function renderNetwork(){
   var regionMap = {};
   people.forEach(function(p){
     if(!p.region) return;
-    p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(r){
+    p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).filter(function(s){return s!=='总助'&&s!=='助理'}).forEach(function(r){
       if(!regionMap[r]) regionMap[r] = {id:'__r_'+r, label:'', people:[]};
       regionMap[r].people.push(p.id);
     });
