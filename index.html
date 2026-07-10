@@ -161,7 +161,12 @@ function toggleAllDepts(show){
 
 function renderNetwork(){
   var people=getVisiblePeople();
-  if(!people.length){document.getElementById('status').textContent='0 人（请至少选择一个部门）';return}
+  if(!people.length){
+    document.getElementById('status').textContent='0 人（请至少选择一个部门）';
+    if(network){network.destroy();network=null}
+    document.getElementById('mynetwork').innerHTML='';
+    return
+  }
 
   var nodes=new vis.DataSet(people.map(function(p){
     var bg=deptColors[p.dept]||'#999';
