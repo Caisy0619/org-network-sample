@@ -10,13 +10,15 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f6fa;color:#333}
-.header{background:#2F5496;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
-.header h1{font-size:20px;font-weight:600}
-.header span{font-size:13px;opacity:.8}
-.toolbar{background:#fff;padding:10px 24px;border-bottom:1px solid #e0e0e0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;min-height:52px}
-.toolbar input[type=text]{padding:6px 12px;border:1px solid #ccc;border-radius:4px;font-size:14px;width:200px;outline:0}
+.header{background:#2F5496;color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:18px;font-weight:600}
+.header span{font-size:12px;opacity:.8}
+.toolbar{background:#fff;padding:6px 16px;border-bottom:1px solid #e0e0e0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar input[type=text]{padding:4px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:160px;outline:0}
 .toolbar input[type=text]:focus{border-color:#2F5496}
-.toolbar label{font-size:13px;color:#555;display:flex;align-items:center;gap:6px;cursor:pointer}
+.toolbar .dept-filter{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:#555}
+.toolbar .dept-filter label{cursor:pointer;display:inline-flex;align-items:center;gap:3px}
+.toolbar .dept-filter input{margin:0}
 #uploadZone{border:2px dashed #2F5496;border-radius:8px;padding:40px 20px;text-align:center;margin:40px 20px;background:#fff;cursor:pointer;transition:.2s}
 #uploadZone:hover{border-color:#C0392B;background:#f0f2f9}
 #uploadZone.dragover{border-color:#C0392B;background:#fce9e9}
@@ -24,17 +26,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 #uploadZone .text{font-size:16px;color:#888;margin-top:8px}
 #uploadZone .sub{font-size:13px;color:#aaa;margin-top:4px}
 #chartArea{display:none}
-#mynetwork{width:100%;height:calc(100vh - 120px);background:#e8ecf1}
-#detailPanel{position:fixed;right:-340px;top:120px;width:320px;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:20px;transition:right .3s;z-index:100}
-#detailPanel.open{right:20px}
-#detailPanel h3{font-size:18px;margin-bottom:4px}
-#detailPanel .sub{color:#888;font-size:13px;margin-bottom:12px}
-#detailPanel .row{display:flex;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
-#detailPanel .row .lbl{width:80px;color:#888}
+#mynetwork{width:100%;height:calc(100vh - 110px);background:#e8ecf1}
+#detailPanel{position:fixed;right:-340px;top:100px;width:300px;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:16px;transition:right .3s;z-index:100}
+#detailPanel.open{right:16px}
+#detailPanel h3{font-size:16px;margin-bottom:2px}
+#detailPanel .sub{color:#888;font-size:12px;margin-bottom:8px}
+#detailPanel .row{display:flex;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:13px}
+#detailPanel .row .lbl{width:70px;color:#888}
 #detailPanel .row .val{flex:1}
-#detailPanel .close{position:absolute;top:12px;right:16px;cursor:pointer;color:#999;font-size:20px}
-#detailPanel .close:hover{color:#333}
-#status{font-size:13px;color:#888;margin-left:auto}
+#detailPanel .close{position:absolute;top:10px;right:14px;cursor:pointer;color:#999;font-size:18px}
+#status{font-size:12px;color:#888;margin-left:auto;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -43,25 +44,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
   <span>上传Excel → 自动生成</span>
 </div>
 
-<!-- Upload -->
 <div id="uploadZone" onclick="document.getElementById('fileInput').click()">
   <div class="icon">📂</div>
   <div class="text">点击选择 或 拖拽Excel文件到这里</div>
-  <div class="sub">支持 .xlsx · 第一行为表头</div>
+  <div class="sub">支持 .xlsx · 第一行为表头：姓名,部门,岗位,汇报对象,协作部门,分组标签</div>
   <input id="fileInput" type="file" accept=".xlsx,.xls" style="display:none">
 </div>
 
-<!-- Chart -->
 <div id="chartArea">
   <div class="toolbar">
     <input id="search" type="text" placeholder="搜索姓名...">
-    <label><input type="checkbox" id="togHierarchy" checked> 汇报线</label>
-    <label><input type="checkbox" id="togCollab" checked> 协作线</label>
+    <div class="dept-filter" id="deptFilters"></div>
     <span id="status"></span>
-    </div>
-    <div id="legend" style="display:none;background:#fff;padding:6px 16px;border-bottom:1px solid #e0e0e0;font-size:12px;color:#555;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-    <span style="font-weight:600;margin-right:4px">部门:</span>
-    </div>
+  </div>
   <div id="mynetwork"></div>
 </div>
 
@@ -75,159 +70,149 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 </div>
 
 <script>
-let network = null;
+let network = null, allPeople = [], deptColors = {};
 
-// Drag & drop
-const zone = document.getElementById('uploadZone');
-zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
-document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files.length) handleFile(e.target.files[0]); });
+const COLORS = ["#C0392B","#2F5496","#548235","#BF8F00","#843C0C","#365F91","#4BACC6","#8064A2","#F79646","#1F4973","#953734","#76923C","#948A54","#4F6228","#9B59B6"];
 
-function handleFile(file) {
-  if(!file.name.match(/\.xlsx?$/i)) return alert('请上传 .xlsx 文件');
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const wb = XLSX.read(e.target.result, {type:'array'});
-      buildGraph(wb);
-    } catch(err) { alert('读取Excel失败：'+err.message); }
+document.getElementById('uploadZone').addEventListener('dragover',e=>{e.preventDefault();document.getElementById('uploadZone').classList.add('dragover')});
+document.getElementById('uploadZone').addEventListener('dragleave',()=>document.getElementById('uploadZone').classList.remove('dragover'));
+document.getElementById('uploadZone').addEventListener('drop',e=>{e.preventDefault();document.getElementById('uploadZone').classList.remove('dragover');handleFile(e.dataTransfer.files[0])});
+document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files.length)handleFile(e.target.files[0])});
+
+function handleFile(f){
+  if(!f.name.match(/\.xlsx?$/i))return alert('请上传.xlsx文件');
+  var r=new FileReader();
+  r.onload=function(e){
+    try{var wb=XLSX.read(e.target.result,{type:'array'});buildGraph(wb)}
+    catch(err){alert('读取Excel失败：'+err.message)}
   };
-  reader.readAsArrayBuffer(file);
+  r.readAsArrayBuffer(f);
 }
 
-function buildGraph(wb) {
-  // Find the first sheet with data
-  let sheet = null;
-  for(const name of wb.SheetNames) {
-    const s = wb.Sheets[name];
-    const json = XLSX.utils.sheet_to_json(s, {defval:''});
-    if(json.length > 0) { sheet = {name, data: json}; break; }
+function buildGraph(wb){
+  var sheet=null;
+  for(var n of wb.SheetNames){
+    var s=wb.Sheets[n],j=XLSX.utils.sheet_to_json(s,{defval:''});
+    if(j.length){sheet={name:n,data:j};break}
   }
-  if(!sheet) return alert('Excel中没有数据');
+  if(!sheet)return alert('Excel中没有数据');
+  allPeople=sheet.data.map(function(r){return{
+    id:String(r['姓名']||r['name']||r['Name']||''),
+    dept:String(r['部门']||r['dept']||r['Dept']||''),
+    title:String(r['岗位']||r['title']||r['Title']||r['职位']||''),
+    reportsTo:String(r['汇报对象']||r['reportsTo']||''),
+    collab:String(r['协作部门']||r['collab']||''),
+    group:String(r['分组标签']||r['group']||'员工'),
+  }}).filter(function(p){return p.id});
+  if(!allPeople.length)return alert('未找到人员数据');
 
-  const data = sheet.data;
-  // Expected columns: 姓名, 部门, 岗位, 汇报对象, 协作部门, 分组标签
-  // Try to map - first row is header, but XLSX already parsed it
-  const people = data.map(row => ({
-    id: String(row['姓名'] || row['name'] || row['Name'] || ''),
-    dept: String(row['部门'] || row['dept'] || row['Dept'] || ''),
-    title: String(row['岗位'] || row['title'] || row['Title'] || row['职位'] || ''),
-    reportsTo: String(row['汇报对象'] || row['reportsTo'] || row['ReportsTo'] || ''),
-    collab: String(row['协作部门'] || row['collab'] || row['Collab'] || ''),
-    group: String(row['分组标签'] || row['group'] || row['Group'] || '员工'),
-  })).filter(p => p.id);
+  document.getElementById('uploadZone').style.display='none';
+  document.getElementById('chartArea').style.display='block';
+  document.getElementById('deptFilters').innerHTML='';
 
-  if(people.length === 0) return alert('未找到人员数据，请确认第一行是表头：姓名,部门,岗位,汇报对象,协作部门,分组标签');
+  // Assign dept colors
+  var ci=0; deptColors={};
+  allPeople.forEach(function(p){if(!deptColors[p.dept])deptColors[p.dept]=COLORS[ci++%COLORS.length]});
 
-  document.getElementById('uploadZone').style.display = 'none';
-  document.getElementById('chartArea').style.display = 'block';
+  // Build dept filter checkboxes
+  var depts=Object.keys(deptColors).sort();
+  var filterHtml='<label style="font-weight:600">部门:</label>';
+  depts.forEach(function(d){
+    var c=deptColors[d];
+    filterHtml+='<label><input type="checkbox" class="dept-cb" value="'+d+'" checked> <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+c+'"></span> '+d+'</label>';
+  });
+  filterHtml+=' <a href="javascript:void 0" onclick="toggleAllDepts(true)" style="font-size:11px;color:#2F5496">全选</a> <a href="javascript:void 0" onclick="toggleAllDepts(false)" style="font-size:11px;color:#999">清空</a>';
+  document.getElementById('deptFilters').innerHTML=filterHtml;
 
-  renderGraph(people);
-  document.getElementById('status').textContent = `${people.length} 人`;
+  // Listen to filter changes
+  document.querySelectorAll('.dept-cb').forEach(function(cb){cb.addEventListener('change',renderNetwork)});
+
+  renderNetwork();
 }
 
-function renderGraph(people) {
-  // Auto-assign colors by department
-  const deptColors = [
-    "#C0392B","#2F5496","#548235","#BF8F00","#7F6000",
-    "#843C0C","#365F91","#4BACC6","#8064A2","#F79646",
-    "#1F4973","#953734","#76923C","#948A54","#4F6228"
-  ];
-  const deptMap = {};
-  let colorIdx = 0;
-  people.forEach(p => {
-    if(!deptMap[p.dept]) { deptMap[p.dept] = deptColors[colorIdx % deptColors.length]; colorIdx++; }
-  });
+function getVisiblePeople(){
+  var checked={};
+  document.querySelectorAll('.dept-cb:checked').forEach(function(cb){checked[cb.value]=true});
+  return allPeople.filter(function(p){return checked[p.dept]});
+}
 
-  // Group info for legend
-  const deptList = Object.keys(deptMap);
+function toggleAllDepts(show){
+  document.querySelectorAll('.dept-cb').forEach(function(cb){cb.checked=show});
+  renderNetwork();
+}
 
-  const nodes = new vis.DataSet(people.map(p => {
-    const bg = deptMap[p.dept] || "#999";
-    const size = p.group === "高管"||p.group==="管理层" ? 22 : p.group==="中层"||p.group==="部门负责人"||p.group==="区域负责人" ? 18 : 14;
-    const shape = p.group === "高管"||p.group==="管理层" ? "star" : p.group==="中层"||p.group==="部门负责人"||p.group==="区域负责人" ? "diamond" : "ellipse";
-    return {
-      id: p.id, label: p.id,
-      widthConstraint: 60,
-      color: {background:bg, border:"#333", highlight:{background:bg, border:"#FFD700"}},
-      font: {color:"#fff", size:10, face:"PingFang SC, Microsoft YaHei, sans-serif", strokeWidth:2, strokeColor:"rgba(0,0,0,0.4)"},
-      shape, size, borderWidth:1, shadow:{enabled:true, size:2},
-      title: `<b>${p.id}</b><br>${p.dept} · ${p.title}<br>汇报: ${p.reportsTo||'无'}<br>协作: ${p.collab||'无'}`
+function renderNetwork(){
+  var people=getVisiblePeople();
+  if(!people.length){document.getElementById('status').textContent='0 人（请至少选择一个部门）';return}
+
+  var nodes=new vis.DataSet(people.map(function(p){
+    var bg=deptColors[p.dept]||'#999';
+    var sz=p.group==='高管'||p.group==='管理层'?20:p.group==='中层'||p.group==='部门负责人'||p.group==='区域负责人'?16:13;
+    var sh=p.group==='高管'||p.group==='管理层'?'star':p.group==='中层'||p.group==='部门负责人'||p.group==='区域负责人'?'diamond':'ellipse';
+    return{
+      id:p.id,label:p.id,widthConstraint:50,
+      color:{background:bg,border:'#333',highlight:{background:bg,border:'#FFD700'}},
+      font:{color:'#fff',size:9,face:'PingFang SC, Microsoft YaHei, sans-serif',strokeWidth:2,strokeColor:'rgba(0,0,0,0.4)'},
+      shape:sh,size:sz,borderWidth:1,shadow:{enabled:true,size:2},
+      title:'<b>'+p.id+'</b><br>'+p.dept+' · '+p.title
     };
   }));
 
-  const edges = new vis.DataSet();
-  people.forEach(p => {
-    if(p.reportsTo) edges.add({from:p.reportsTo, to:p.id, color:{color:"#C0392B"}, width:2, dashes:false, title:"汇报"});
-    if(p.collab) {
-      p.collab.split(/[/,，、]/).map(s=>s.trim()).filter(Boolean).forEach(tag => {
-        people.filter(x => (x.dept.includes(tag) || x.group.includes(tag)) && x.id !== p.id).forEach(t => {
-          const k = [p.id,t.id].sort().join('|');
-          if(!edges.get().some(e => [e.from,e.to].sort().join('|')===k && e.title==='协作'))
-            edges.add({from:p.id, to:t.id, color:{color:"#70AD47"}, width:1, dashes:true, title:"协作"});
+  var edges=new vis.DataSet();
+  people.forEach(function(p){
+    if(p.reportsTo&&people.some(function(x){return x.id===p.reportsTo}))
+      edges.add({from:p.reportsTo,to:p.id,color:{color:'#C0392B'},width:2,dashes:false,title:'汇报'});
+    if(p.collab){
+      p.collab.split(/[/,，、]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(tag){
+        people.filter(function(x){return(x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0)&&x.id!==p.id}).forEach(function(t){
+          var k=[p.id,t.id].sort().join('|');
+          if(!edges.get().some(function(e){return[e.from,e.to].sort().join('|')===k&&e.title==='协作'}))
+            edges.add({from:p.id,to:t.id,color:{color:'#70AD47'},width:1,dashes:true,title:'协作'});
         });
       });
     }
   });
 
-  document.getElementById('status').textContent = `${people.length} 人 · ${edges.length} 条关系`;
+  document.getElementById('status').textContent=people.length+' 人 · '+edges.length+' 条关系';
 
-  // Build legend
-  const legendEl = document.getElementById('legend');
-  legendEl.style.display = 'flex';
-  legendEl.innerHTML = '<span style="font-weight:600;margin-right:4px">部门:</span> ' +
-    deptList.map(d => {
-      const color = deptMap[d];
-      return `<span style="display:inline-flex;align-items:center;gap:4px">
-        <span style="width:10px;height:10px;border-radius:2px;background:${color};display:inline-block"></span>${d}
-      </span>`;
-    }).join('') +
-    ' <span style="margin-left:12px;font-weight:600">分组:</span>' +
-    ' <span>★高管</span> <span>◆中层</span> <span>●员工</span>';
+  var container=document.getElementById('mynetwork');
+  if(network)network.destroy();
 
-  const container = document.getElementById('mynetwork');
-  if(network) network.destroy();
-  network = new vis.Network(container, {nodes,edges}, {
-    layout:{hierarchical:{enabled:true, direction:"UD", sortMethod:"directed", levelSeparation:35, nodeSpacing:30, treeSpacing:40}},
-    physics:{enabled:false},
-    interaction:{hover:true, tooltipDelay:100, zoomView:true, dragView:true},
-    edges:{smooth:{type:"curvedCW", roundness:0.1}},
+  // Force-directed layout: clusters by connectedness, so dept nodes stay near each other
+  network=new vis.Network(container,{nodes,edges},{
+    physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-80,centralGravity:0.01,springLength:100,springConstant:0.08,damping:0.4}},
+    layout:{},
+    interaction:{hover:true,tooltipDelay:80,zoomView:true,dragView:true},
+    edges:{smooth:{type:'curvedCW',roundness:0.1}},
   });
 
-  // Search
-  document.getElementById('search').oninput = e => {
-    const q = e.target.value.trim();
-    if(!q) { network.selectNodes([]); network.unselectAll(); return; }
-    const m = nodes.get().filter(n => n.label.includes(q));
-    if(m.length) { network.selectNodes([m[0].id]); network.focus(m[0].id, {scale:1.5, animation:{duration:300}}); }
+  // After physics settles, switch to static
+  setTimeout(function(){network.setOptions({physics:{enabled:false}});},3000);
+
+  document.getElementById('search').oninput=function(e){
+    var q=e.target.value.trim();
+    if(!q){network.selectNodes([]);network.unselectAll();return}
+    var m=nodes.get().filter(function(n){return n.label.indexOf(q)>=0});
+    if(m.length){network.selectNodes([m[0].id]);network.focus(m[0].id,{scale:1.5,animation:{duration:300}})}
   };
 
-  // Toggle
-  document.getElementById('togHierarchy').onchange = e => {
-    edges.forEach(ed => { if(ed.title==='汇报') edges.update({id:ed.id, hidden:!e.target.checked}); });
-  };
-  document.getElementById('togCollab').onchange = e => {
-    edges.forEach(ed => { if(ed.title==='协作') edges.update({id:ed.id, hidden:!e.target.checked}); });
-  };
-
-  network.on('click', params => {
-    if(params.nodes.length) {
-      const p = people.find(x => x.id === params.nodes[0]);
-      if(p) {
-        document.getElementById('dName').textContent = p.id;
-        document.getElementById('dDept').textContent = p.dept;
-        document.getElementById('dTitle').textContent = p.title;
-        document.getElementById('dReportsTo').textContent = p.reportsTo || '无';
-        document.getElementById('dCollab').textContent = p.collab || '无';
-        document.getElementById('dGroup').textContent = p.group;
+  network.on('click',function(params){
+    if(params.nodes.length){
+      var p=people.find(function(x){return x.id===params.nodes[0]});
+      if(p){
+        document.getElementById('dName').textContent=p.id;
+        document.getElementById('dDept').textContent=p.dept;
+        document.getElementById('dTitle').textContent=p.title;
+        document.getElementById('dReportsTo').textContent=p.reportsTo||'无';
+        document.getElementById('dCollab').textContent=p.collab||'无';
+        document.getElementById('dGroup').textContent=p.group;
         document.getElementById('detailPanel').classList.add('open');
       }
-    } else { closeDetail(); }
+    }else closeDetail();
   });
 }
 
-function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); }
+function closeDetail(){document.getElementById('detailPanel').classList.remove('open')}
 </script>
 </body>
 </html>
