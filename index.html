@@ -179,7 +179,7 @@ function getVisiblePeople(){
   document.querySelectorAll('.region-cb:checked').forEach(function(cb){regionChecked[cb.value]=true;hasCheckedRegion=true});
   return allPeople.filter(function(p){
     if(!deptChecked[p.dept]) return false;
-    if(!p.region) return hasCheckedRegion; // 无区域的人：有区域筛选时才显示
+    if(!p.region) return regionChecked['总部']||false; // 无区域的人：只有总部被选才显示
     var personRegions=p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean);
     return personRegions.some(function(r){return regionChecked[r]});
   });
