@@ -203,20 +203,20 @@ function renderNetwork(){
     var rn = regionMap[r];
     nodes.add({id:rn.id,label:'',shape:'ellipse',size:1,
       color:{background:'transparent',border:'transparent'},
-      font:{size:1},fixed:false
+      font:{size:1},fixed:false,hidden:true
     });
     rn.people.forEach(function(pid){
-      edges.add({from:rn.id,to:pid,color:{color:'rgba(0,0,0,0.03)'},width:0.3,physics:true,title:'',length:20});
+      edges.add({from:rn.id,to:pid,color:{color:'rgba(0,0,0,0)'},width:0.1,physics:true,title:'',length:20,hidden:true});
     });
-    // 全国 people also connect to a central 总部 anchor
+    // 总部 anchor for 全国/总部 people
     if(r==='全国'||r==='总部') {
       hasHQ = true;
       var hqId = '__r_总部';
       if(!nodes.get(hqId)) {
-        nodes.add({id:hqId,label:'',shape:'ellipse',size:1,color:{background:'transparent',border:'transparent'},font:{size:1},fixed:false});
+        nodes.add({id:hqId,label:'',shape:'ellipse',size:1,color:{background:'transparent',border:'transparent'},font:{size:1},fixed:false,hidden:true});
       }
       rn.people.forEach(function(pid){
-        edges.add({from:hqId,to:pid,color:{color:'rgba(0,0,0,0.04)'},width:0.4,physics:true,title:''});
+        edges.add({from:hqId,to:pid,color:{color:'rgba(0,0,0,0)'},width:0.1,physics:true,title:'',length:20,hidden:true});
       });
     }
   });
