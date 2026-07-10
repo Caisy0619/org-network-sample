@@ -103,6 +103,7 @@ function buildGraph(wb){
     reportsTo:String(r['汇报对象']||r['reportsTo']||''),
     collab:String(r['协作部门']||r['collab']||''),
     group:String(r['分组标签']||r['group']||'员工'),
+    region:String(r['区域']||r['region']||r['Region']||''),
   }}).filter(function(p){return p.id});
   if(!allPeople.length)return alert('未找到人员数据');
 
@@ -154,9 +155,28 @@ function renderNetwork(){
       color:{background:bg,border:'#333',highlight:{background:bg,border:'#FFD700'}},
       font:{color:'#fff',size:9,face:'PingFang SC, Microsoft YaHei, sans-serif',strokeWidth:2,strokeColor:'rgba(0,0,0,0.4)'},
       shape:sh,size:sz,borderWidth:1,shadow:{enabled:true,size:2},
-      title:'<b>'+p.id+'</b><br>'+p.dept+' · '+p.title
+      title:'<b>'+p.id+'</b><br>'+p.dept+' · '+p.title,
     };
   }));
+
+  // Invisible region anchor nodes — cluster people by region
+  var regionMap = {};
+  people.forEach(function(p){
+    if(!p.region) return;
+    if(!regionMap[p.region]) regionMap[p.region] = {id:'__r_'+p.region, label:'', people:[]};
+    regionMap[p.region].people.push(p.id);
+  });
+  Object.keys(regionMap).forEach(function(r){
+    var rn = regionMap[r];
+    nodes.add({id:rn.id,label:'['+r+']',shape:'box',size:1,
+      color:{background:'transparent',border:'#aaa'},
+      font:{color:'#888',size:8,face:'PingFang SC, Microsoft YaHei, sans-serif'},
+      physics:true,fixed:false,widthConstraint:30
+    });
+    rn.people.forEach(function(pid){
+      edges.add({from:rn.id,to:pid,color:{color:'rgba(0,0,0,0.08)'},width:0.5,dashes:true,physics:true,title:''});
+    });
+  });
 
   // Calculate hierarchy level for each person
   function calcLevel(name, memo) {
