@@ -267,16 +267,22 @@ function renderNetwork(){
     if(p.reportsTo&&people.some(function(x){return x.id===p.reportsTo}))
       edges.add({from:p.reportsTo,to:p.id,color:{color:'#C0392B'},width:2,dashes:false,title:'汇报'});
   });
-  // Collaboration edges (green dashed) — ONLY same region + same level
+  // Collaboration edges (green dashed) — same region + same level優先，無同級則跨級
   people.forEach(function(p){
     if(!p.collab||!p.region) return;
     p.collab.split(/[/,，、]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(tag){
-      people.filter(function(x){
-        if(x.id===p.id||!x.region) return false;
-        if(!matchRegion(x.region,p.region)) return false;
-        if(levelMap[x.id]!==levelMap[p.id]) return false;
-        return x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0;
-      }).forEach(function(t){
+      // Try same-level first; if none, fall back to cross-level
+      var sameLevelMatches=[];
+      var crossLevelMatches=[];
+      people.forEach(function(x){
+        if(x.id===p.id||!x.region) return;
+        if(!matchRegion(x.region,p.region)) return;
+        if(!(x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0)) return;
+        if(levelMap[x.id]===levelMap[p.id]) sameLevelMatches.push(x);
+        else crossLevelMatches.push(x);
+      });
+      var matches=sameLevelMatches.length?sameLevelMatches:crossLevelMatches;
+      matches.forEach(function(t){
         var k=[p.id,t.id].sort().join('|');
         if(!edges.get().some(function(e){return[e.from,e.to].sort().join('|')===k&&e.title==='协作'}))
           edges.add({from:p.id,to:t.id,color:{color:'#70AD47'},width:1,dashes:true,title:'协作'});
