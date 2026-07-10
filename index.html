@@ -119,6 +119,11 @@ function buildGraph(wb){
   }}).filter(function(p){return p.id});
   if(!allPeople.length)return alert('未找到人员数据');
 
+  // Debug: show region data
+  var regions = {};
+  allPeople.forEach(function(p){if(p.region)regions[p.region]=(regions[p.region]||0)+1});
+  console.log('区域分布:', JSON.stringify(regions));
+
   document.getElementById('uploadZone').style.display='none';
   document.getElementById('chartArea').style.display='block';
   document.getElementById('deptFilters').innerHTML='';
@@ -201,7 +206,7 @@ function renderNetwork(){
       font:{size:1},fixed:false
     });
     rn.people.forEach(function(pid){
-      edges.add({from:rn.id,to:pid,color:{color:'rgba(0,0,0,0.03)'},width:0.3,physics:true,title:''});
+      edges.add({from:rn.id,to:pid,color:{color:'rgba(0,0,0,0.03)'},width:0.3,physics:true,title:'',length:20});
     });
     // 全国 people also connect to a central 总部 anchor
     if(r==='全国'||r==='总部') {
@@ -242,7 +247,7 @@ function renderNetwork(){
 
   // Force-directed layout: clusters by connectedness, so dept nodes stay near each other
   network=new vis.Network(container,{nodes,edges},{
-    physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-150,centralGravity:0.02,springLength:60,springConstant:0.12,damping:0.4}},
+    physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-500,centralGravity:0.05,springLength:50,springConstant:0.2,damping:0.5}},
     layout:{},
     interaction:{hover:true,tooltipDelay:80,zoomView:true,dragView:true},
     edges:{smooth:{type:'curvedCW',roundness:0.1}},
