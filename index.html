@@ -13,12 +13,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 .header{background:#2F5496;color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
 .header h1{font-size:18px;font-weight:600}
 .header span{font-size:12px;opacity:.8}
-.toolbar{background:#fff;padding:6px 16px;border-bottom:1px solid #e0e0e0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar{background:#fff;padding:6px 16px;border-bottom:1px solid #e0e0e0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-height:52px}
 .toolbar input[type=text]{padding:4px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;width:160px;outline:0}
 .toolbar input[type=text]:focus{border-color:#2F5496}
+.toolbar label{font-size:12px;color:#555;cursor:pointer;display:inline-flex;align-items:center;gap:3px}
 .toolbar .dept-filter{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:#555}
 .toolbar .dept-filter label{cursor:pointer;display:inline-flex;align-items:center;gap:3px}
-.toolbar .dept-filter input{margin:0}
+.toolbar .dept-filter a{font-size:11px;text-decoration:none}
 #uploadZone{border:2px dashed #2F5496;border-radius:8px;padding:40px 20px;text-align:center;margin:40px 20px;background:#fff;cursor:pointer;transition:.2s}
 #uploadZone:hover{border-color:#C0392B;background:#f0f2f9}
 #uploadZone.dragover{border-color:#C0392B;background:#fce9e9}
@@ -26,7 +27,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 #uploadZone .text{font-size:16px;color:#888;margin-top:8px}
 #uploadZone .sub{font-size:13px;color:#aaa;margin-top:4px}
 #chartArea{display:none}
-#mynetwork{width:100%;height:calc(100vh - 110px);background:#e8ecf1}
+#mynetwork{width:100%;height:calc(100vh - 120px);background:#e8ecf1}
 #detailPanel{position:fixed;right:-340px;top:100px;width:300px;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:16px;transition:right .3s;z-index:100}
 #detailPanel.open{right:16px}
 #detailPanel h3{font-size:16px;margin-bottom:2px}
@@ -41,27 +42,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 <body>
 <div class="header">
   <h1>🏢 组织关系互动图</h1>
-  <span>上传Excel → 自动生成</span>
+  <span>上传Excel · 自动生成</span>
 </div>
-
 <div id="uploadZone" onclick="document.getElementById('fileInput').click()">
   <div class="icon">📂</div>
   <div class="text">点击选择 或 拖拽Excel文件到这里</div>
-  <div class="sub">支持 .xlsx · 第一行为表头：姓名,部门,岗位,汇报对象,协作部门,分组标签</div>
+  <div class="sub">支持 .xlsx · 第一行为表头：姓名,部门,岗位,汇报对象,协作部门,分组标签,区域</div>
   <input id="fileInput" type="file" accept=".xlsx,.xls" style="display:none">
 </div>
-
 <div id="chartArea">
   <div class="toolbar">
     <input id="search" type="text" placeholder="搜索姓名...">
-    <label style="font-size:12px;color:#555;cursor:pointer;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="togReport" checked> 汇报线</label>
-    <label style="font-size:12px;color:#555;cursor:pointer;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="togCollab" checked> 协作线</label>
+    <label><input type="checkbox" id="togReport" checked> 汇报线</label>
+    <label><input type="checkbox" id="togCollab" checked> 协作线</label>
     <div class="dept-filter" id="deptFilters"></div>
     <span id="status"></span>
   </div>
   <div id="mynetwork"></div>
 </div>
-
 <div id="detailPanel">
   <span class="close" onclick="closeDetail()">✕</span>
   <h3 id="dName"></h3>
@@ -69,37 +67,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
   <div class="row"><span class="lbl">汇报对象</span><span class="val" id="dReportsTo"></span></div>
   <div class="row"><span class="lbl">协作对象</span><span class="val" id="dCollab"></span></div>
   <div class="row"><span class="lbl">分组</span><span class="val" id="dGroup"></span></div>
+  <div class="row"><span class="lbl">区域</span><span class="val" id="dRegion"></span></div>
 </div>
-
 <script>
-let network = null, allPeople = [], deptColors = {};
+var network=null,allPeople=[],deptColors={};
+var _nodeOrigins={},_edgeOrigins={};
+var COLORS=["#C0392B","#2F5496","#27AE60","#E67E22","#8E44AD","#1ABC9C","#A0522D","#E91E63","#1A237E","#7CB342","#800000","#00BCD4","#6B8E23","#9B59B6","#F1C40F"];
 
-const COLORS = ["#C0392B","#2F5496","#27AE60","#E67E22","#8E44AD","#1ABC9C","#A0522D","#E91E63","#1A237E","#7CB342","#800000","#00BCD4","#6B8E23","#9B59B6","#F1C40F"];
+var uz=document.getElementById('uploadZone');
+uz.addEventListener('dragover',function(e){e.preventDefault();uz.classList.add('dragover')});
+uz.addEventListener('dragleave',function(){uz.classList.remove('dragover')});
+uz.addEventListener('drop',function(e){e.preventDefault();uz.classList.remove('dragover');doFile(e.dataTransfer.files[0])});
+document.getElementById('fileInput').addEventListener('change',function(e){if(e.target.files.length)doFile(e.target.files[0])});
 
-document.getElementById('uploadZone').addEventListener('dragover',e=>{e.preventDefault();document.getElementById('uploadZone').classList.add('dragover')});
-document.getElementById('uploadZone').addEventListener('dragleave',()=>document.getElementById('uploadZone').classList.remove('dragover'));
-document.getElementById('uploadZone').addEventListener('drop',e=>{e.preventDefault();document.getElementById('uploadZone').classList.remove('dragover');handleFile(e.dataTransfer.files[0])});
-document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files.length)handleFile(e.target.files[0])});
-
-function handleFile(f){
-  if(!f.name.match(/\.xlsx?$/i))return alert('请上传 .xlsx 文件');
-  if(f.size>5000000)return alert('文件太大，请压缩后重试');
+function doFile(f){
+  if(!f.name.match(/\.xlsx?$/i)){alert('请上传.xlsx文件');return}
   var r=new FileReader();
   r.onload=function(e){
     try{
-      var data=new Uint8Array(e.target.result);
-      var wb=XLSX.read(data,{type:'array',cellDates:true});
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       buildGraph(wb);
     }catch(err){
-      alert('读取Excel失败
-错误：'+err.message+'
-
-常见原因：
-1. 文件不是标准的.xlsx格式
-2. 文件已损坏
-3. 第一行不是表头
-
-请用WPS/Excel另存为.xlsx后重试');
+      alert('读取Excel失败: '+err.message);
     }
   };
   r.readAsArrayBuffer(f);
@@ -107,264 +96,143 @@ function handleFile(f){
 
 function buildGraph(wb){
   var sheet=null;
-  for(var n of wb.SheetNames){
-    var s=wb.Sheets[n],j=XLSX.utils.sheet_to_json(s,{defval:''});
-    if(j.length){sheet={name:n,data:j};break}
+  for(var i=0;i<wb.SheetNames.length;i++){
+    var s=wb.Sheets[wb.SheetNames[i]];
+    var j=XLSX.utils.sheet_to_json(s,{defval:''});
+    if(j&&j.length){sheet={name:wb.SheetNames[i],data:j};break}
   }
-  if(!sheet)return alert('Excel中没有数据');
-
-  // Show debug info
-  var firstRow=sheet.data[0];
-  var keys=Object.keys(firstRow);
-  console.log('Detected columns:', keys.join(', '));
-
-  allPeople=sheet.data.map(function(r){return{
-    id:String(r['姓名']||r['name']||r['Name']||r['人员']||''),
-    dept:String(r['部门']||r['dept']||r['Dept']||r['部门名称']||''),
-    title:String(r['岗位']||r['title']||r['Title']||r['职位']||r['岗位名称']||''),
-    reportsTo:String(r['汇报对象']||r['reportsTo']||r['上级']||r['直属上级']||''),
-    collab:String(r['协作部门']||r['collab']||r['协作']||''),
-    group:String(r['分组标签']||r['group']||r['分组']||r['标签']||'员工'),
-    region:String(r['区域']||r['region']||r['Region']||r['地区']||''),
-  }}).filter(function(p){return p.id});
-  if(!allPeople.length)return alert('未找到人员数据');
-
-  // Debug: show region data
-  var regions = {};
-  allPeople.forEach(function(p){if(p.region)regions[p.region]=(regions[p.region]||0)+1});
-  console.log('区域分布:', JSON.stringify(regions));
-
-  document.getElementById('uploadZone').style.display='none';
+  if(!sheet){alert('Excel中没有数据');return}
+  allPeople=[];
+  for(var i=0;i<sheet.data.length;i++){
+    var r=sheet.data[i];
+    var id=String(r['姓名']||r['name']||r['Name']||r['人员']||'');
+    if(!id)continue;
+    allPeople.push({
+      id:id,
+      dept:String(r['部门']||r['dept']||r['Dept']||r['部门名称']||''),
+      title:String(r['岗位']||r['title']||r['Title']||r['职位']||r['岗位名称']||''),
+      reportsTo:String(r['汇报对象']||r['reportsTo']||r['上级']||r['直属上级']||''),
+      collab:String(r['协作部门']||r['collab']||r['协作']||''),
+      group:String(r['分组标签']||r['group']||r['分组']||r['标签']||'员工'),
+      region:String(r['区域']||r['region']||r['Region']||r['地区']||''),
+    });
+  }
+  if(!allPeople.length){alert('未找到人员数据，请确认列名');return}
+  uz.style.display='none';
   document.getElementById('chartArea').style.display='block';
   document.getElementById('deptFilters').innerHTML='';
-
-  // Assign dept colors
-  var ci=0; deptColors={};
-  allPeople.forEach(function(p){if(!deptColors[p.dept])deptColors[p.dept]=COLORS[ci++%COLORS.length]});
-
-  // Build dept filter checkboxes
+  var ci=0;deptColors={};
+  for(var i=0;i<allPeople.length;i++){var p=allPeople[i];if(!deptColors[p.dept]){deptColors[p.dept]=COLORS[ci%COLORS.length];ci++}}
   var depts=Object.keys(deptColors).sort();
-  var filterHtml='<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px"><span style="font-weight:600">部门:</span>';
-  depts.forEach(function(d){
-    var c=deptColors[d];
-    filterHtml+='<label><input type="checkbox" class="dept-cb" value="'+d+'" checked> <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+c+'"></span> '+d+'</label>';
-  });
-  filterHtml+=' <a href="javascript:void 0" onclick="toggleAllDepts(true)" style="font-size:11px;color:#2F5496">全选</a> <a href="javascript:void 0" onclick="toggleAllDepts(false)" style="font-size:11px;color:#999">清空</a></div>';
-  document.getElementById('deptFilters').innerHTML=filterHtml;
-
-  // Build region filter checkboxes
-  var allRegions={};
-  allPeople.forEach(function(p){
-    if(!p.region) return;
-    p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).filter(function(s){return s!=='总助'&&s!=='助理'}).forEach(function(r){allRegions[r]=true});
-  });
-  var regionKeys=Object.keys(allRegions).sort();
-  var regionHtml='<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;margin-top:4px"><span style="font-weight:600">区域:</span>';
-  regionKeys.forEach(function(r){
-    regionHtml+='<label><input type="checkbox" class="region-cb" value="'+r+'" checked style="margin:0"> '+r+'</label>';
-  });
-  regionHtml+=' <a href="javascript:void 0" onclick="toggleAllRegions(true)" style="font-size:11px;color:#2F5496">全选</a> <a href="javascript:void 0" onclick="toggleAllRegions(false)" style="font-size:11px;color:#999">清空</a></div>';
-  document.getElementById('deptFilters').innerHTML+=regionHtml;
-
-  // Listen to filter changes
-  document.querySelectorAll('.dept-cb').forEach(function(cb){cb.addEventListener('change',renderNetwork)});
-  document.querySelectorAll('.region-cb').forEach(function(cb){cb.addEventListener('change',renderNetwork)});
-
-  renderNetwork();
+  var h='<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center"><span style="font-weight:600;margin-right:2px">部门:</span>';
+  for(var i=0;i<depts.length;i++){var d=depts[i];h+='<label><input type="checkbox" class="dept-cb" value="'+d+'" checked> <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+deptColors[d]+'"></span> '+d+'</label>'}
+  h+=' <a href="javascript:void 0" onclick="ta(true)" style="color:#2F5496">全选</a> <a href="javascript:void 0" onclick="ta(false)" style="color:#999">清空</a></div>';
+  document.getElementById('deptFilters').innerHTML=h;
+  var ar={};
+  for(var i=0;i<allPeople.length;i++){var p=allPeople[i];if(p.region){var parts=p.region.split(/[、,，]/);for(var j=0;j<parts.length;j++){var s=parts[j].trim();if(s&&s!=='总助'&&s!=='助理')ar[s]=true}}}
+  var rk=Object.keys(ar).sort();
+  if(rk.length){
+    h='<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;margin-top:4px"><span style="font-weight:600;margin-right:2px">区域:</span>';
+    for(var i=0;i<rk.length;i++){h+='<label><input type="checkbox" class="region-cb" value="'+rk[i]+'" checked> '+rk[i]+'</label>'}
+    h+=' <a href="javascript:void 0" onclick="tra(true)" style="color:#2F5496">全选</a> <a href="javascript:void 0" onclick="tra(false)" style="color:#999">清空</a></div>';
+    document.getElementById('deptFilters').innerHTML+=h;
+  }
+  var cbs=document.querySelectorAll('.dept-cb');for(var i=0;i<cbs.length;i++){cbs[i].addEventListener('change',rn)}
+  var cbs2=document.querySelectorAll('.region-cb');for(var i=0;i<cbs2.length;i++){cbs2[i].addEventListener('change',rn)}
+  rn();
 }
 
-// Match regions that may be separated by 、
-function matchRegion(r1, r2){
-  if(!r1||!r2) return false;
-  var a1=r1.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).filter(function(s){return s!=='总助'&&s!=='助理'});
-  var a2=r2.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).filter(function(s){return s!=='总助'&&s!=='助理'});
-  return a1.some(function(x){return a2.indexOf(x)>=0});
+function mr(r1,r2){if(!r1||!r2)return false;var a1=[],a2=[];var p1=r1.split(/[、,，]/);for(var i=0;i<p1.length;i++){var s=p1[i].trim();if(s&&s!=='总助'&&s!=='助理')a1.push(s)}var p2=r2.split(/[、,，]/);for(var i=0;i<p2.length;i++){var s=p2[i].trim();if(s&&s!=='总助'&&s!=='助理')a2.push(s)}for(var i=0;i<a1.length;i++){for(var j=0;j<a2.length;j++){if(a1[i]===a2[j])return true}}return false}
+
+function gvp(){
+  var dc={},rc={};
+  var cbs=document.querySelectorAll('.dept-cb:checked');for(var i=0;i<cbs.length;i++){dc[cbs[i].value]=true}
+  var cbs2=document.querySelectorAll('.region-cb:checked');for(var i=0;i<cbs2.length;i++){rc[cbs2[i].value]=true}
+  var out=[];
+  for(var i=0;i<allPeople.length;i++){
+    var p=allPeople[i];
+    if(!dc[p.dept])continue;
+    if(!p.region){if(rc['总部'])out.push(p);continue}
+    var parts=p.region.split(/[、,，]/);var match=false;
+    for(var j=0;j<parts.length;j++){if(rc[parts[j].trim()]){match=true;break}}
+    if(match)out.push(p);
+  }
+  return out;
 }
 
-function getVisiblePeople(){
-  var deptChecked={};
-  document.querySelectorAll('.dept-cb:checked').forEach(function(cb){deptChecked[cb.value]=true});
-  var regionChecked={};
-  var hasCheckedRegion=false;
-  document.querySelectorAll('.region-cb:checked').forEach(function(cb){regionChecked[cb.value]=true;hasCheckedRegion=true});
-  return allPeople.filter(function(p){
-    if(!deptChecked[p.dept]) return false;
-    if(!p.region) return regionChecked['总部']||false; // 无区域的人：只有总部被选才显示
-    var personRegions=p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean);
-    return personRegions.some(function(r){return regionChecked[r]});
-  });
-}
+function ta(s){var cbs=document.querySelectorAll('.dept-cb');for(var i=0;i<cbs.length;i++){cbs[i].checked=s};rn()}
+function tra(s){var cbs=document.querySelectorAll('.region-cb');for(var i=0;i<cbs.length;i++){cbs[i].checked=s};rn()}
 
-function toggleAllDepts(show){
-  document.querySelectorAll('.dept-cb').forEach(function(cb){cb.checked=show});
-  renderNetwork();
-}
-function toggleAllRegions(show){
-  document.querySelectorAll('.region-cb').forEach(function(cb){cb.checked=show});
-  renderNetwork();
-}
-
-function renderNetwork(){
-  var people=getVisiblePeople();
+function rn(){
+  var people=gvp();
   if(!people.length){
-    document.getElementById('status').textContent='0 人（请至少选择一个部门）';
+    document.getElementById('status').textContent='0 人';
     if(network){network.destroy();network=null}
     document.getElementById('mynetwork').innerHTML='';
     return
   }
-
-  var nodes=new vis.DataSet(people.map(function(p){
+  var lm={};
+  function cl(n,m){if(m[n]!==undefined)return m[n];var p=null;for(var i=0;i<people.length;i++){if(people[i].id===n){p=people[i];break}}if(!p||!p.reportsTo){m[n]=0;return 0}m[n]=cl(p.reportsTo,m)+1;return m[n]}
+  for(var i=0;i<people.length;i++){lm[people[i].id]=cl(people[i].id,lm)}
+  var nd=new vis.DataSet();
+  for(var i=0;i<people.length;i++){
+    var p=people[i];
     var bg=deptColors[p.dept]||'#999';
     var sz=p.group==='高管'||p.group==='管理层'?20:p.group==='中层'||p.group==='部门负责人'||p.group==='区域负责人'?16:13;
-    // 董事长（CEO/创始人）比总经理大一号
-    if(p.title.indexOf('董事长')>=0||p.id.indexOf('董事长')>=0||p.title.indexOf('CEO')>=0||p.title.indexOf('创始人')>=0) sz=26;
-    else if(p.title.indexOf('总经理')>=0||p.title.indexOf('总裁')>=0||p.title.indexOf('COO')>=0||p.title.indexOf('CFO')>=0) sz=22;
+    if(p.title.indexOf('董事长')>=0||p.id.indexOf('董事长')>=0||p.title.indexOf('CEO')>=0)sz=26;
+    else if(p.title.indexOf('总经理')>=0||p.title.indexOf('总裁')>=0||p.title.indexOf('COO')>=0||p.title.indexOf('CFO')>=0)sz=22;
     var sh=p.group==='高管'||p.group==='管理层'?'star':p.group==='中层'||p.group==='部门负责人'||p.group==='区域负责人'?'diamond':'ellipse';
-    return{
-      id:p.id,label:p.id,widthConstraint:50,
+    nd.add({id:p.id,label:p.id,widthConstraint:50,
       color:{background:bg,border:'#333',highlight:{background:bg,border:'#FFD700'}},
       font:{color:'#fff',size:9,face:'PingFang SC, Microsoft YaHei, sans-serif',strokeWidth:2,strokeColor:'rgba(0,0,0,0.4)'},
-      shape:sh,size:sz,borderWidth:1,shadow:{enabled:true,size:2},
-      title:'<b>'+p.id+'</b><br>'+p.dept+' · '+p.title,
-    };
-  }));
-
-  // Calculate hierarchy level for each person
-  function calcLevel(name, memo) {
-    if(memo[name] !== undefined) return memo[name];
-    var p = people.find(function(x){return x.id===name});
-    if(!p || !p.reportsTo) { memo[name]=0; return 0; }
-    memo[name] = calcLevel(p.reportsTo, memo) + 1;
-    return memo[name];
+      shape:sh,size:sz,borderWidth:1,shadow:{enabled:true,size:2}});
   }
-  var levelMap = {};
-  people.forEach(function(p){levelMap[p.id]=calcLevel(p.id,levelMap)});
-
-  var edges=new vis.DataSet();
-
-  // Invisible region anchor nodes — cluster people by region (supports 、-separated)
-  var regionMap = {};
-  people.forEach(function(p){
-    if(!p.region) return;
-    p.region.split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean).filter(function(s){return s!=='总助'&&s!=='助理'}).forEach(function(r){
-      if(!regionMap[r]) regionMap[r] = {id:'__r_'+r, label:'', people:[]};
-      regionMap[r].people.push(p.id);
-    });
-  });
-
-  // Add a 总部 anchor for non-regional / 全国 people
-  var hasHQ = false;
-  Object.keys(regionMap).forEach(function(r){
-    var rn = regionMap[r];
-    nodes.add({id:rn.id,label:'',shape:'ellipse',size:1,
-      color:{background:'transparent',border:'transparent'},
-      font:{size:1},fixed:false,hidden:true
-    });
-    rn.people.forEach(function(pid){
-      edges.add({from:rn.id,to:pid,color:{color:'rgba(0,0,0,0)'},width:0.1,physics:true,title:'',length:20,hidden:true});
-    });
-    // 总部 anchor for 全国/总部 people
-    if(r==='全国'||r==='总部') {
-      hasHQ = true;
-      var hqId = '__r_总部';
-      if(!nodes.get(hqId)) {
-        nodes.add({id:hqId,label:'',shape:'ellipse',size:1,color:{background:'transparent',border:'transparent'},font:{size:1},fixed:false,hidden:true});
-      }
-      rn.people.forEach(function(pid){
-        edges.add({from:hqId,to:pid,color:{color:'rgba(0,0,0,0)'},width:0.1,physics:true,title:'',length:20,hidden:true});
-      });
-    }
-  });
-
-  // Reporting edges (red solid)
-  people.forEach(function(p){
-    if(p.reportsTo&&people.some(function(x){return x.id===p.reportsTo}))
-      edges.add({from:p.reportsTo,to:p.id,color:{color:'#C0392B'},width:2,dashes:false,title:'汇报'});
-  });
-  // Collaboration edges (green dashed) — same region + same level優先，無同級則跨級
-  people.forEach(function(p){
-    if(!p.collab||!p.region) return;
-    p.collab.split(/[/,，、]/).map(function(s){return s.trim()}).filter(Boolean).forEach(function(tag){
-      // Try same-level first; if none, fall back to cross-level
-      var sameLevelMatches=[];
-      var crossLevelMatches=[];
-      var isAssist = p.title.indexOf('总助')>=0||p.title.indexOf('助理')>=0||p.id.indexOf('总助')>=0||p.id.indexOf('助理')>=0||p.dept.indexOf('总助')>=0||p.dept.indexOf('助理')>=0;
-      people.forEach(function(x){
-        if(x.id===p.id||!x.region) return;
-        if(!matchRegion(x.region,p.region)) return;
-        if(!(x.dept.indexOf(tag)>=0||x.group.indexOf(tag)>=0)) return;
-        // 总助不连总助
-        if(isAssist && (x.title.indexOf('总助')>=0||x.title.indexOf('助理')>=0||x.id.indexOf('总助')>=0||x.id.indexOf('助理')>=0||x.dept.indexOf('总助')>=0||x.dept.indexOf('助理')>=0)) return;
-        if(levelMap[x.id]===levelMap[p.id]) sameLevelMatches.push(x);
-        else crossLevelMatches.push(x);
-      });
-      var matches=sameLevelMatches.length?sameLevelMatches:crossLevelMatches;
-      matches.forEach(function(t){
-        var k=[p.id,t.id].sort().join('|');
-        if(!edges.get().some(function(e){return[e.from,e.to].sort().join('|')===k&&e.title==='协作'}))
-          edges.add({from:p.id,to:t.id,color:{color:'#70AD47'},width:1,dashes:true,title:'协作'});
-      });
-    });
-  });
-
-  document.getElementById('status').textContent=people.length+' 人 · '+edges.length+' 条关系';
-
+  var ed=new vis.DataSet();
+  var rm={};
+  for(var i=0;i<people.length;i++){var p=people[i];if(!p.region)continue;var parts=p.region.split(/[、,，]/);for(var j=0;j<parts.length;j++){var s=parts[j].trim();if(s&&s!=='总助'&&s!=='助理'){if(!rm[s])rm[s]={id:'__r_'+s,people:[]};rm[s].people.push(p.id)}}}
+  var rkeys=Object.keys(rm);
+  for(var i=0;i<rkeys.length;i++){var rn2=rm[rkeys[i]];nd.add({id:rn2.id,label:'',shape:'ellipse',size:1,color:{background:'transparent',border:'transparent'},font:{size:1},fixed:false,hidden:true});for(var j=0;j<rn2.people.length;j++){ed.add({from:rn2.id,to:rn2.people[j],color:{color:'rgba(0,0,0,0)'},width:0.1,physics:true,length:25,hidden:true})}if(rkeys[i]==='总部'){var hq='__r_总部';if(!nd.get(hq))nd.add({id:hq,label:'',shape:'ellipse',size:1,color:{background:'transparent',border:'transparent'},font:{size:1},fixed:false,hidden:true});for(var j=0;j<rn2.people.length;j++){ed.add({from:hq,to:rn2.people[j],color:{color:'rgba(0,0,0,0)'},width:0.1,physics:true,length:25,hidden:true})}}}
+  for(var i=0;i<people.length;i++){var p=people[i];if(p.reportsTo){for(var j=0;j<people.length;j++){if(people[j].id===p.reportsTo){ed.add({from:p.reportsTo,to:p.id,color:{color:'#C0392B'},width:2,dashes:false,title:'汇报'});break}}}}
+  for(var i=0;i<people.length;i++){var p=people[i];if(!p.collab||!p.region)continue;var tags=p.collab.split(/[/,，、]/);for(var t=0;t<tags.length;t++){var tag=tags[t].trim();if(!tag)continue;var sml=[],cml=[];var isA=p.title.indexOf('总助')>=0||p.id.indexOf('总助')>=0||p.dept.indexOf('总助')>=0;for(var j=0;j<people.length;j++){var x=people[j];if(x.id===p.id||!x.region)continue;if(!mr(x.region,p.region))continue;if(x.dept.indexOf(tag)<0&&x.group.indexOf(tag)<0)continue;if(isA&&(x.title.indexOf('总助')>=0||x.id.indexOf('总助')>=0||x.dept.indexOf('总助')>=0))continue;if(lm[x.id]===lm[p.id])sml.push(x);else cml.push(x)}var m=sml.length?sml:cml;for(var j=0;j<m.length;j++){var t2=m[j];var k=[p.id,t2.id].sort().join('|');var dup=false;var allE=ed.get();for(var e=0;e<allE.length;e++){if([allE[e].from,allE[e].to].sort().join('|')===k&&allE[e].title==='协作'){dup=true;break}}if(!dup)ed.add({from:p.id,to:t2.id,color:{color:'#70AD47'},width:1,dashes:true,title:'协作'})}}}
+  document.getElementById('status').textContent=people.length+' 人 · '+ed.length+' 条关系';
+  _nodeOrigins={};var allN=nd.get();for(var i=0;i<allN.length;i++){_nodeOrigins[allN[i].id]={color:JSON.parse(JSON.stringify(allN[i].color)),font:JSON.parse(JSON.stringify(allN[i].font))}}
+  _edgeOrigins={};var allE2=ed.get();for(var i=0;i<allE2.length;i++){_edgeOrigins[allE2[i].id]={color:JSON.parse(JSON.stringify(allE2[i].color)),width:allE2[i].width}}
   var container=document.getElementById('mynetwork');
   if(network)network.destroy();
-
-  // Force-directed layout: clusters by connectedness, so dept nodes stay near each other
-  network=new vis.Network(container,{nodes,edges},{
+  network=new vis.Network(container,{nodes:nd,edges:ed},{
     physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-500,centralGravity:0.05,springLength:50,springConstant:0.2,damping:0.5}},
-    layout:{},
     interaction:{hover:true,tooltipDelay:80,zoomView:true,dragView:true},
     edges:{smooth:{type:'curvedCW',roundness:0.1}},
   });
-
-  // After physics settles, switch to static
-  setTimeout(function(){network.setOptions({physics:{enabled:false}});},3000);
-
-  document.getElementById('search').oninput=function(e){
-    var q=e.target.value.trim();
+  setTimeout(function(){if(network)network.setOptions({physics:{enabled:false}})},3000);
+  aet();
+  document.getElementById('search').oninput=function(){
+    var q=this.value.trim();
     if(!q){network.selectNodes([]);network.unselectAll();return}
-    var m=nodes.get().filter(function(n){return n.label.indexOf(q)>=0});
+    var m=nd.get().filter(function(n){return n.label.indexOf(q)>=0});
     if(m.length){network.selectNodes([m[0].id]);network.focus(m[0].id,{scale:1.5,animation:{duration:300}})}
   };
-
-  // Save originals
-  _nodeOrigins={};nodes.forEach(function(n){_nodeOrigins[n.id]={color:JSON.parse(JSON.stringify(n.color)),font:JSON.parse(JSON.stringify(n.font))}});
-  _edgeOrigins={};edges.forEach(function(ed){_edgeOrigins[ed.id]={color:JSON.parse(JSON.stringify(ed.color)),width:ed.width}});
-  applyEdgeToggles();
-
-  // Toggle edges
-  document.getElementById('togReport').onchange=function(e){
-    edges.forEach(function(ed){if(ed.title==='汇报')edges.update({id:ed.id,hidden:!e.target.checked})});
-  };
-  document.getElementById('togCollab').onchange=function(e){
-    edges.forEach(function(ed){if(ed.title==='协作')edges.update({id:ed.id,hidden:!e.target.checked})});
-  };
-
+  document.getElementById('togReport').onchange=function(){aet()};
+  document.getElementById('togCollab').onchange=function(){aet()};
   network.on('click',function(params){
     if(params.nodes.length){
       var sel=params.nodes[0];
-      var connEdges=edges.get({filter:function(ed){return ed.from===sel||ed.to===sel}});
+      var ce=ed.get({filter:function(e){return e.from===sel||e.to===sel}});
       var nb={};nb[sel]=true;
-      connEdges.forEach(function(ed){nb[ed.from]=true;nb[ed.to]=true});
-      nodes.forEach(function(n){
-        if(nb[n.id]){
-          nodes.update({id:n.id,color:{background:n.color.background,border:n.color.background},font:{color:'#fff',size:n.font.size,face:'PingFang SC, Microsoft YaHei, sans-serif',strokeWidth:2,strokeColor:'rgba(0,0,0,0.4)'}});
-        }else{
-          nodes.update({id:n.id,font:{color:'rgba(0,0,0,0.1)',size:n.font.size-1,face:'PingFang SC, Microsoft YaHei, sans-serif',strokeWidth:0}});
-        }
-      });
-      var ce={};connEdges.forEach(function(ed){ce[ed.id]=true});
-      edges.forEach(function(ed){
-        if(ce[ed.id]){
-          edges.update({id:ed.id,color:{color:ed.title==='汇报'?'#C0392B':'#70AD47'},width:ed.title==='汇报'?3:1.5});
-        }else{
-          edges.update({id:ed.id,color:{color:'rgba(0,0,0,0.05)'},width:0.3});
-        }
-      });
-      var p=people.find(function(x){return x.id===sel});
+      for(var i=0;i<ce.length;i++){nb[ce[i].from]=true;nb[ce[i].to]=true}
+      var allN2=nd.get();
+      for(var i=0;i<allN2.length;i++){
+        var n=allN2[i];
+        if(nb[n.id]){nd.update({id:n.id,color:{background:n.color.background,border:n.color.background},font:{color:'#fff',size:n.font.size,face:'PingFang SC, Microsoft YaHei, sans-serif',strokeWidth:2,strokeColor:'rgba(0,0,0,0.4)'}})}
+        else{nd.update({id:n.id,font:{color:'rgba(0,0,0,0.08)',size:n.font.size-1,face:'PingFang SC, Microsoft YaHei, sans-serif',strokeWidth:0}})}
+      }
+      var cem={};for(var i=0;i<ce.length;i++){cem[ce[i].id]=true}
+      var allE3=ed.get();
+      for(var i=0;i<allE3.length;i++){
+        if(cem[allE3[i].id]){ed.update({id:allE3[i].id,color:{color:allE3[i].title==='汇报'?'#C0392B':'#70AD47'},width:allE3[i].title==='汇报'?3:1.5})}
+        else{ed.update({id:allE3[i].id,color:{color:'rgba(0,0,0,0.04)'},width:0.3})}
+      }
+      var p=null;for(var i=0;i<people.length;i++){if(people[i].id===sel){p=people[i];break}}
       if(p){
         document.getElementById('dName').textContent=p.id;
         document.getElementById('dDept').textContent=p.dept;
@@ -372,32 +240,37 @@ function renderNetwork(){
         document.getElementById('dReportsTo').textContent=p.reportsTo||'无';
         document.getElementById('dCollab').textContent=p.collab||'无';
         document.getElementById('dGroup').textContent=p.group;
+        document.getElementById('dRegion').textContent=p.region||'无';
         document.getElementById('detailPanel').classList.add('open');
       }
     }else{
       closeDetail();
-      restoreGraph();
+      rg();
     }
   });
 }
 
-var _nodeOrigins={},_edgeOrigins={};
-function restoreGraph(){
+function rg(){
   if(!network)return;
-  Object.keys(_nodeOrigins).forEach(function(id){nodes.update({id:id,color:_nodeOrigins[id].color,font:_nodeOrigins[id].font})});
-  Object.keys(_edgeOrigins).forEach(function(id){edges.update({id:id,color:_edgeOrigins[id].color,width:_edgeOrigins[id].width})});
-  applyEdgeToggles();
+  var keys=Object.keys(_nodeOrigins);
+  for(var i=0;i<keys.length;i++){network.body.data.nodes.update({id:keys[i],color:_nodeOrigins[keys[i]].color,font:_nodeOrigins[keys[i]].font})}
+  var keys2=Object.keys(_edgeOrigins);
+  for(var i=0;i<keys2.length;i++){network.body.data.edges.update({id:keys2[i],color:_edgeOrigins[keys2[i]].color,width:_edgeOrigins[keys2[i]].width})}
+  aet();
 }
-function applyEdgeToggles(){
+
+function aet(){
   if(!network)return;
   var e=network.body.data.edges;
   var hr=document.getElementById('togReport').checked;
   var hc=document.getElementById('togCollab').checked;
-  e.forEach(function(ed){
-    if(ed.title==='汇报')e.update({id:ed.id,hidden:!hr});
-    if(ed.title==='协作')e.update({id:ed.id,hidden:!hc});
-  });
+  var allE=e.get();
+  for(var i=0;i<allE.length;i++){
+    if(allE[i].title==='汇报')e.update({id:allE[i].id,hidden:!hr});
+    if(allE[i].title==='协作')e.update({id:allE[i].id,hidden:!hc});
+  }
 }
+
 function closeDetail(){document.getElementById('detailPanel').classList.remove('open')}
 </script>
 </body>
